@@ -201,6 +201,7 @@
             border-radius: 8px;
             font-size: 1rem;
             margin-top: 10px;
+            font-family: 'Courier New', monospace;
         }
 
         .api-input:focus {
@@ -252,7 +253,7 @@
             <div class="api-setup">
                 <h3>🔑 Windy API Setup</h3>
                 <p>Get your free API key from <a href="https://api.windy.com" target="_blank">api.windy.com</a></p>
-                <input type="text" id="apiKey" class="api-input" placeholder="Enter your Windy API key..." />
+                <input type="password" id="apiKey" class="api-input" placeholder="Enter your Windy API key..." />
                 <button class="btn" onclick="saveApiKey()" style="margin-top: 10px;">Save API Key</button>
             </div>
 
@@ -383,19 +384,33 @@
                 waypoints.push({ lat, lon, name, type: 'waypoint' });
             }
             
-            // Parse track points (route)
-            const trkpts = xmlDoc.getElementsByTagName('trkpt');
-            for (let i = 0; i < trkpts.length; i += Math.max(1, Math.floor(trkpts.length / 10))) {
-                const trkpt = trkpts[i];
-                const lat = parseFloat(trkpt.getAttribute('lat'));
-                const lon = parseFloat(trkpt.getAttribute('lon'));
+            // Parse route points (rtept) - This is what Windy exports!
+            const rteptElements = xmlDoc.getElementsByTagName('rtept');
+            for (let rtept of rteptElements) {
+                const lat = parseFloat(rtept.getAttribute('lat'));
+                const lon = parseFloat(rtept.getAttribute('lon'));
+                const nameElement = rtept.getElementsByTagName('name')[0];
+                const name = nameElement ? `Route Point ${nameElement.textContent}` : `Route Point ${waypoints.length + 1}`;
                 
-                waypoints.push({ 
-                    lat, 
-                    lon, 
-                    name: `Route Point ${Math.floor(i / Math.max(1, Math.floor(trkpts.length / 10))) + 1}`,
-                    type: 'track'
-                });
+                waypoints.push({ lat, lon, name, type: 'route' });
+            }
+            
+            // Parse track points (route) - fallback for other GPX formats
+            const trkpts = xmlDoc.getElementsByTagName('trkpt');
+            if (trkpts.length > 0 && waypoints.length === 0) {
+                // Only use track points if no route points found
+                for (let i = 0; i < trkpts.length; i += Math.max(1, Math.floor(trkpts.length / 10))) {
+                    const trkpt = trkpts[i];
+                    const lat = parseFloat(trkpt.getAttribute('lat'));
+                    const lon = parseFloat(trkpt.getAttribute('lon'));
+                    
+                    waypoints.push({ 
+                        lat, 
+                        lon, 
+                        name: `Track Point ${Math.floor(i / Math.max(1, Math.floor(trkpts.length / 10))) + 1}`,
+                        type: 'track'
+                    });
+                }
             }
             
             return waypoints;
