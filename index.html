@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trip Weather Forecast</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#2563eb">
+    <meta name="description" content="Weather forecasts for your trip waypoints">
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌤️</text></svg>">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .upload-section {
+            border: 3px dashed #ddd;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-section:hover {
+            border-color: #2563eb;
+            background: #f8faff;
+        }
+
+        .upload-section.dragover {
+            border-color: #2563eb;
+            background: #e0f2fe;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: #666;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #2563eb, #3b82f6);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: transform 0.2s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #2563eb;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .waypoints {
+            display: none;
+        }
+
+        .waypoint {
+            background: #f8faff;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 5px solid #2563eb;
+        }
+
+        .waypoint-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .waypoint-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .coordinates {
+            font-family: 'Courier New', monospace;
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        .weather-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .weather-item {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .weather-label {
+            font-size: 0.8rem;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+
+        .weather-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .api-setup {
+            background: #fef3c7;
+            border: 1px solid #fbbf24;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .api-input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-top: 10px;
+        }
+
+        .api-input:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+
+        .error {
+            background: #fee2e2;
+            border: 1px solid #fca5a5;
+            color: #dc2626;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+
+        .success {
+            background: #d1fae5;
+            border: 1px solid #6ee7b7;
+            color: #059669;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+
+        @media (max-width: 640px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .weather-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌤️ Trip Weather</h1>
+            <p>Upload your GPX route and get detailed weather forecasts for each waypoint</p>
+        </div>
+
+        <div class="card">
+            <div class="api-setup">
+                <h3>🔑 Windy API Setup</h3>
+                <p>Get your free API key from <a href="https://api.windy.com" target="_blank">api.windy.com</a></p>
+                <input type="text" id="apiKey" class="api-input" placeholder="Enter your Windy API key..." />
+                <button class="btn" onclick="saveApiKey()" style="margin-top: 10px;">Save API Key</button>
+            </div>
+
+            <div class="upload-section" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">📁</div>
+                <h3>Upload GPX File</h3>
+                <p>Drag and drop your GPX route file here, or click to select</p>
+                <input type="file" id="fileInput" accept=".gpx,.xml" />
+                <button class="btn" style="margin-top: 15px;">Choose File</button>
+            </div>
+
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Fetching weather data for your waypoints...</p>
+            </div>
+
+            <div class="waypoints"></div>
+        </div>
+    </div>
+
+    <script>
+        let apiKey = localStorage.getItem('windyApiKey') || '';
+        if (apiKey) {
+            document.getElementById('apiKey').value = apiKey;
+        }
+
+        function saveApiKey() {
+            const key = document.getElementById('apiKey').value.trim();
+            if (key) {
+                localStorage.setItem('windyApiKey', key);
+                apiKey = key;
+                showMessage('API key saved successfully!', 'success');
+            } else {
+                showMessage('Please enter a valid API key', 'error');
+            }
+        }
+
+        function showMessage(message, type) {
+            const existing = document.querySelector('.error, .success');
+            if (existing) existing.remove();
+
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = message;
+            document.querySelector('.card').appendChild(div);
+
+            setTimeout(() => div.remove(), 5000);
+        }
+
+        // File upload handling
+        const fileInput = document.getElementById('fileInput');
+        const uploadSection = document.querySelector('.upload-section');
+        const loadingDiv = document.querySelector('.loading');
+        const waypointsDiv = document.querySelector('.waypoints');
+
+        // Drag and drop
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('dragover');
+        });
+
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('dragover');
+        });
+
+        uploadSection.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        async function handleFile(file) {
+            if (!apiKey) {
+                showMessage('Please enter your Windy API key first', 'error');
+                return;
+            }
+
+            if (!file.name.toLowerCase().endsWith('.gpx')) {
+                showMessage('Please upload a GPX file', 'error');
+                return;
+            }
+
+            try {
+                loadingDiv.style.display = 'block';
+                waypointsDiv.style.display = 'none';
+
+                const text = await file.text();
+                const waypoints = parseGPX(text);
+                
+                if (waypoints.length === 0) {
+                    showMessage('No waypoints found in GPX file', 'error');
+                    loadingDiv.style.display = 'none';
+                    return;
+                }
+
+                await fetchWeatherForWaypoints(waypoints);
+                
+            } catch (error) {
+                console.error('Error processing file:', error);
+                showMessage('Error processing GPX file: ' + error.message, 'error');
+                loadingDiv.style.display = 'none';
+            }
+        }
+
+        function parseGPX(gpxText) {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(gpxText, 'text/xml');
+            
+            const waypoints = [];
+            
+            // Parse waypoints
+            const wptElements = xmlDoc.getElementsByTagName('wpt');
+            for (let wpt of wptElements) {
+                const lat = parseFloat(wpt.getAttribute('lat'));
+                const lon = parseFloat(wpt.getAttribute('lon'));
+                const nameElement = wpt.getElementsByTagName('name')[0];
+                const name = nameElement ? nameElement.textContent : `Waypoint ${waypoints.length + 1}`;
+                
+                waypoints.push({ lat, lon, name, type: 'waypoint' });
+            }
+            
+            // Parse track points (route)
+            const trkpts = xmlDoc.getElementsByTagName('trkpt');
+            for (let i = 0; i < trkpts.length; i += Math.max(1, Math.floor(trkpts.length / 10))) {
+                const trkpt = trkpts[i];
+                const lat = parseFloat(trkpt.getAttribute('lat'));
+                const lon = parseFloat(trkpt.getAttribute('lon'));
+                
+                waypoints.push({ 
+                    lat, 
+                    lon, 
+                    name: `Route Point ${Math.floor(i / Math.max(1, Math.floor(trkpts.length / 10))) + 1}`,
+                    type: 'track'
+                });
+            }
+            
+            return waypoints;
+        }
+
+        async function fetchWeatherForWaypoints(waypoints) {
+            const weatherData = [];
+            
+            for (let i = 0; i < waypoints.length; i++) {
+                const waypoint = waypoints[i];
+                try {
+                    const weather = await fetchWeatherData(waypoint.lat, waypoint.lon);
+                    weatherData.push({
+                        ...waypoint,
+                        weather
+                    });
+                } catch (error) {
+                    console.error(`Error fetching weather for ${waypoint.name}:`, error);
+                    weatherData.push({
+                        ...waypoint,
+                        weather: { error: 'Failed to fetch weather data' }
+                    });
+                }
+                
+                // Small delay to avoid rate limiting
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+            
+            displayWeatherData(weatherData);
+            loadingDiv.style.display = 'none';
+            waypointsDiv.style.display = 'block';
+        }
+
+        async function fetchWeatherData(lat, lon) {
+            const response = await fetch('https://api.windy.com/api/point-forecast/v2', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    lat: lat,
+                    lon: lon,
+                    model: 'gfs',
+                    parameters: ['wind', 'temp', 'precip', 'rh', 'pressure'],
+                    key: apiKey
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Weather API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            // Process the data - take current conditions (first timestamp)
+            const currentIndex = 0;
+            const temp = data['temp-surface'] ? Math.round(data['temp-surface'][currentIndex] - 273.15) : 'N/A';
+            const windSpeed = data['wind-surface'] ? Math.round(data['wind-surface'][currentIndex] * 3.6) : 'N/A';
+            const pressure = data['pressure-surface'] ? Math.round(data['pressure-surface'][currentIndex] / 100) : 'N/A';
+            const humidity = data['rh-surface'] ? Math.round(data['rh-surface'][currentIndex]) : 'N/A';
+            const precip = data['precip-surface'] ? data['precip-surface'][currentIndex].toFixed(1) : 'N/A';
+
+            return {
+                temperature: temp,
+                windSpeed: windSpeed,
+                pressure: pressure,
+                humidity: humidity,
+                precipitation: precip,
+                timestamp: new Date(data.ts[currentIndex]).toLocaleString()
+            };
+        }
+
+        function displayWeatherData(weatherData) {
+            waypointsDiv.innerHTML = '';
+            
+            weatherData.forEach((point, index) => {
+                const waypointDiv = document.createElement('div');
+                waypointDiv.className = 'waypoint';
+                
+                const weatherContent = point.weather.error ? 
+                    `<div class="error">${point.weather.error}</div>` :
+                    `<div class="weather-grid">
+                        <div class="weather-item">
+                            <div class="weather-label">Temperature</div>
+                            <div class="weather-value">${point.weather.temperature}°C</div>
+                        </div>
+                        <div class="weather-item">
+                            <div class="weather-label">Wind Speed</div>
+                            <div class="weather-value">${point.weather.windSpeed} km/h</div>
+                        </div>
+                        <div class="weather-item">
+                            <div class="weather-label">Pressure</div>
+                            <div class="weather-value">${point.weather.pressure} hPa</div>
+                        </div>
+                        <div class="weather-item">
+                            <div class="weather-label">Humidity</div>
+                            <div class="weather-value">${point.weather.humidity}%</div>
+                        </div>
+                        <div class="weather-item">
+                            <div class="weather-label">Precipitation</div>
+                            <div class="weather-value">${point.weather.precipitation} mm</div>
+                        </div>
+                        <div class="weather-item">
+                            <div class="weather-label">Forecast Time</div>
+                            <div class="weather-value" style="font-size: 0.8rem;">${point.weather.timestamp}</div>
+                        </div>
+                    </div>`;
+                
+                waypointDiv.innerHTML = `
+                    <div class="waypoint-header">
+                        <div>
+                            <div class="waypoint-name">${point.name}</div>
+                            <div class="coordinates">${point.lat.toFixed(4)}, ${point.lon.toFixed(4)}</div>
+                        </div>
+                    </div>
+                    ${weatherContent}
+                `;
+                
+                waypointsDiv.appendChild(waypointDiv);
+            });
+        }
+
+        // PWA Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then((registration) => {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch((registrationError) => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
