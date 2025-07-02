@@ -260,9 +260,9 @@
 
             <div class="upload-section" onclick="document.getElementById('fileInput').click()">
                 <div class="upload-icon">📁</div>
-                <h3>Upload GPX File</h3>
-                <p>Drag and drop your GPX route file here, or click to select</p>
-                <input type="file" id="fileInput" accept=".gpx,.xml" />
+                <h3>Upload GPX/GPXD File</h3>
+                <p>Drag and drop your GPX route file or GPXD trip file here, or click to select</p>
+                <input type="file" id="fileInput" accept=".gpx,.gpxd,.xml" />
                 <button class="btn" style="margin-top: 15px;">Choose File</button>
             </div>
 
@@ -359,8 +359,8 @@
                 return;
             }
 
-            if (!file.name.toLowerCase().endsWith('.gpx')) {
-                showMessage('Please upload a GPX file', 'error');
+            if (!file.name.toLowerCase().endsWith('.gpx') && !file.name.toLowerCase().endsWith('.gpxd')) {
+                showMessage('Please upload a GPX or GPXD file', 'error');
                 return;
             }
 
@@ -391,44 +391,85 @@
             const xmlDoc = parser.parseFromString(gpxText, 'text/xml');
             
             const waypoints = [];
+            const isGPXD = xmlDoc.documentElement.tagName === 'gpxd';
             
-            // Parse waypoints
-            const wptElements = xmlDoc.getElementsByTagName('wpt');
-            for (let wpt of wptElements) {
-                const lat = parseFloat(wpt.getAttribute('lat'));
-                const lon = parseFloat(wpt.getAttribute('lon'));
-                const nameElement = wpt.getElementsByTagName('name')[0];
-                const name = nameElement ? nameElement.textContent : `Waypoint ${waypoints.length + 1}`;
-                
-                waypoints.push({ lat, lon, name, type: 'waypoint' });
-            }
-            
-            // Parse route points (rtept) - This is what Windy exports!
-            const rteptElements = xmlDoc.getElementsByTagName('rtept');
-            for (let rtept of rteptElements) {
-                const lat = parseFloat(rtept.getAttribute('lat'));
-                const lon = parseFloat(rtept.getAttribute('lon'));
-                const nameElement = rtept.getElementsByTagName('name')[0];
-                const name = nameElement ? `Route Point ${nameElement.textContent}` : `Route Point ${waypoints.length + 1}`;
-                
-                waypoints.push({ lat, lon, name, type: 'route' });
-            }
-            
-            // Parse track points (route) - fallback for other GPX formats
-            const trkpts = xmlDoc.getElementsByTagName('trkpt');
-            if (trkpts.length > 0 && waypoints.length === 0) {
-                // Only use track points if no route points found
-                for (let i = 0; i < trkpts.length; i += Math.max(1, Math.floor(trkpts.length / 10))) {
-                    const trkpt = trkpts[i];
-                    const lat = parseFloat(trkpt.getAttribute('lat'));
-                    const lon = parseFloat(trkpt.getAttribute('lon'));
+            if (isGPXD) {
+                // Parse GPXD format with dates
+                const waypointElements = xmlDoc.getElementsByTagName('waypoint');
+                for (let wp of waypointElements) {
+                    const lat = parseFloat(wp.getAttribute('lat'));
+                    const lon = parseFloat(wp.getAttribute('lon'));
+                    const nameElement = wp.getElementsByTagName('n')[0];
+                    const name = nameElement ? nameElement.textContent : `Waypoint ${waypoints.length + 1}`;
                     
-                    waypoints.push({ 
-                        lat, 
-                        lon, 
-                        name: `Track Point ${Math.floor(i / Math.max(1, Math.floor(trkpts.length / 10))) + 1}`,
-                        type: 'track'
-                    });
+                    const arrivalElement = wp.getElementsByTagName('arrival')[0];
+                    const departureElement = wp.getElementsByTagName('departure')[0];
+                    
+                    let dates = [];
+                    if (arrivalElement && departureElement) {
+                        const arrival = new Date(arrivalElement.textContent);
+                        const departure = new Date(departureElement.textContent);
+                        
+                        // Generate dates for each day of stay
+                        const currentDate = new Date(arrival);
+                        while (currentDate <= departure) {
+                            dates.push(new Date(currentDate));
+                            currentDate.setDate(currentDate.getDate() + 1);
+                        }
+                    } else if (arrivalElement) {
+                        dates.push(new Date(arrivalElement.textContent));
+                    }
+                    
+                    waypoints.push({ lat, lon, name, type: 'gpxd', dates });
+                }
+            } else {
+                // Parse standard GPX format
+                // Parse waypoints
+                const wptElements = xmlDoc.getElementsByTagName('wpt');
+                for (let wpt of wptElements) {
+                    const lat = parseFloat(wpt.getAttribute('lat'));
+                    const lon = parseFloat(wpt.getAttribute('lon'));
+                    const nameElement = wpt.getElementsByTagName('name')[0];
+                    const name = nameElement ? nameElement.textContent : `Waypoint ${waypoints.length + 1}`;
+                    
+                    // Default to today for GPX files
+                    waypoints.push({ lat, lon, name, type: 'waypoint', dates: [new Date()] });
+                }
+                
+                // Parse route points (rtept) - This is what Windy exports!
+                const rteptElements = xmlDoc.getElementsByTagName('rtept');
+                for (let rtept of rteptElements) {
+                    const lat = parseFloat(rtept.getAttribute('lat'));
+                    const lon = parseFloat(rtept.getAttribute('lon'));
+                    const nameElement = rtept.getElementsByTagName('name')[0];
+                    const name = nameElement ? `Route Point ${nameElement.textContent}` : `Route Point ${waypoints.length + 1}`;
+                    
+                    // Default to today + index days for route points
+                    const futureDate = new Date();
+                    futureDate.setDate(futureDate.getDate() + waypoints.length);
+                    waypoints.push({ lat, lon, name, type: 'route', dates: [futureDate] });
+                }
+                
+                // Parse track points (route) - fallback for other GPX formats
+                const trkpts = xmlDoc.getElementsByTagName('trkpt');
+                if (trkpts.length > 0 && waypoints.length === 0) {
+                    // Only use track points if no route points found
+                    for (let i = 0; i < trkpts.length; i += Math.max(1, Math.floor(trkpts.length / 10))) {
+                        const trkpt = trkpts[i];
+                        const lat = parseFloat(trkpt.getAttribute('lat'));
+                        const lon = parseFloat(trkpt.getAttribute('lon'));
+                        
+                        const futureDate = new Date();
+                        futureDate.setDate(futureDate.getDate() + Math.floor(i / Math.max(1, Math.floor(trkpts.length / 10))));
+                        
+                        waypoints.push({ 
+                            lat, 
+                            lon, 
+                            name: `Track Point ${Math.floor(i / Math.max(1, Math.floor(trkpts.length / 10))) + 1}`,
+                            type: 'track',
+                            dates: [futureDate]
+                        });
+                    }
                 }
             }
             
@@ -463,8 +504,8 @@
             waypointsDiv.style.display = 'block';
         }
 
-        async function fetchWeatherData(lat, lon) {
-            console.log('Fetching weather for:', lat, lon);
+        async function fetchWeatherData(lat, lon, targetDate) {
+            console.log('Fetching weather for:', lat, lon, 'on date:', targetDate);
             console.log('Using API key:', apiKey ? `${apiKey.substring(0, 8)}...` : 'NOT SET');
             
             const requestBody = {
@@ -472,6 +513,7 @@
                 lon: lon,
                 model: 'gfs',
                 parameters: ['wind', 'temp', 'precip', 'rh', 'pressure'],
+                levels: ['surface'],
                 key: apiKey
             };
             
@@ -487,7 +529,6 @@
                 });
 
                 console.log('Response status:', response.status);
-                console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
                 if (!response.ok) {
                     const errorText = await response.text();
@@ -503,13 +544,29 @@
                     throw new Error('No timestamp data received from API');
                 }
                 
-                // Process the data - take current conditions (first timestamp)
-                const currentIndex = 0;
-                const temp = data['temp-surface'] ? Math.round(data['temp-surface'][currentIndex] - 273.15) : 'N/A';
-                const windSpeed = data['wind-surface'] ? Math.round(data['wind-surface'][currentIndex] * 3.6) : 'N/A';
-                const pressure = data['pressure-surface'] ? Math.round(data['pressure-surface'][currentIndex] / 100) : 'N/A';
-                const humidity = data['rh-surface'] ? Math.round(data['rh-surface'][currentIndex]) : 'N/A';
-                const precip = data['precip-surface'] ? data['precip-surface'][currentIndex].toFixed(1) : 'N/A';
+                // Find the closest timestamp to our target date
+                const targetTimestamp = targetDate.getTime();
+                let closestIndex = 0;
+                let closestDiff = Math.abs(data.ts[0] - targetTimestamp);
+                
+                for (let i = 1; i < data.ts.length; i++) {
+                    const diff = Math.abs(data.ts[i] - targetTimestamp);
+                    if (diff < closestDiff) {
+                        closestDiff = diff;
+                        closestIndex = i;
+                    }
+                }
+                
+                console.log(`Target date: ${targetDate.toISOString()}`);
+                console.log(`Closest forecast: ${new Date(data.ts[closestIndex]).toISOString()}`);
+                console.log(`Time difference: ${Math.round(closestDiff / (1000 * 60 * 60))} hours`);
+                
+                // Process the data for the closest timestamp
+                const temp = data['temp-surface'] ? Math.round(data['temp-surface'][closestIndex] - 273.15) : 'N/A';
+                const windSpeed = data['wind-surface'] ? Math.round(data['wind-surface'][closestIndex] * 3.6) : 'N/A';
+                const pressure = data['pressure-surface'] ? Math.round(data['pressure-surface'][closestIndex] / 100) : 'N/A';
+                const humidity = data['rh-surface'] ? Math.round(data['rh-surface'][closestIndex]) : 'N/A';
+                const precip = data['precip-surface'] ? data['precip-surface'][closestIndex].toFixed(1) : 'N/A';
 
                 const result = {
                     temperature: temp,
@@ -517,7 +574,9 @@
                     pressure: pressure,
                     humidity: humidity,
                     precipitation: precip,
-                    timestamp: new Date(data.ts[currentIndex]).toLocaleString()
+                    forecastDate: new Date(data.ts[closestIndex]),
+                    requestedDate: targetDate,
+                    hoursOffset: Math.round(closestDiff / (1000 * 60 * 60))
                 };
                 
                 console.log('Processed weather data:', result);
@@ -532,9 +591,27 @@
         function displayWeatherData(weatherData) {
             waypointsDiv.innerHTML = '';
             
+            // Add export button at the top
+            const exportDiv = document.createElement('div');
+            exportDiv.style.textAlign = 'center';
+            exportDiv.style.marginBottom = '20px';
+            exportDiv.innerHTML = `
+                <button class="btn" onclick="exportToGPXD()" style="background: linear-gradient(45deg, #059669, #10b981);">
+                    📥 Export as GPXD
+                </button>
+            `;
+            waypointsDiv.appendChild(exportDiv);
+            
             weatherData.forEach((point, index) => {
                 const waypointDiv = document.createElement('div');
                 waypointDiv.className = 'waypoint';
+                
+                const dateStr = point.date.toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
                 
                 const weatherContent = point.weather.error ? 
                     `<div class="error">${point.weather.error}</div>` :
@@ -561,9 +638,12 @@
                         </div>
                         <div class="weather-item">
                             <div class="weather-label">Forecast Time</div>
-                            <div class="weather-value" style="font-size: 0.8rem;">${point.weather.timestamp}</div>
+                            <div class="weather-value" style="font-size: 0.8rem;">${point.weather.forecastDate ? point.weather.forecastDate.toLocaleString() : 'N/A'}</div>
                         </div>
                     </div>`;
+                
+                const dateInputId = `date-${index}`;
+                const dateValue = point.date.toISOString().split('T')[0];
                 
                 waypointDiv.innerHTML = `
                     <div class="waypoint-header">
@@ -571,12 +651,132 @@
                             <div class="waypoint-name">${point.name}</div>
                             <div class="coordinates">${point.lat.toFixed(4)}, ${point.lon.toFixed(4)}</div>
                         </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 0.9rem; color: #6b7280; margin-bottom: 5px;">Visit Date:</div>
+                            <input type="date" id="${dateInputId}" value="${dateValue}" 
+                                   style="padding: 5px; border: 1px solid #d1d5db; border-radius: 5px;" 
+                                   onchange="updateWaypointDate(${index}, this.value)" />
+                        </div>
+                    </div>
+                    <div style="font-size: 1.1rem; font-weight: 600; color: #2563eb; margin-bottom: 15px;">
+                        Weather forecast for ${dateStr}
+                        ${point.weather.hoursOffset ? `<span style="font-size: 0.8rem; color: #6b7280;"> (±${point.weather.hoursOffset}h)</span>` : ''}
                     </div>
                     ${weatherContent}
                 `;
                 
                 waypointsDiv.appendChild(waypointDiv);
             });
+        }
+
+        // Store the current weather data globally for date updates
+        let currentWeatherData = [];
+
+        async function updateWaypointDate(index, newDateStr) {
+            if (!currentWeatherData[index]) return;
+            
+            const newDate = new Date(newDateStr);
+            const point = currentWeatherData[index];
+            
+            // Update the date
+            point.date = newDate;
+            
+            // Show loading for this specific waypoint
+            const waypointDiv = document.querySelectorAll('.waypoint')[index + 1]; // +1 for export button
+            const weatherGrid = waypointDiv.querySelector('.weather-grid');
+            if (weatherGrid) {
+                weatherGrid.innerHTML = '<div style="text-align: center; padding: 20px;">Updating forecast...</div>';
+            }
+            
+            try {
+                // Fetch new weather data
+                const weather = await fetchWeatherData(point.lat, point.lon, newDate);
+                point.weather = weather;
+                
+                // Update the display
+                displayWeatherData(currentWeatherData);
+                
+            } catch (error) {
+                console.error('Error updating weather:', error);
+                point.weather = { error: 'Failed to fetch updated weather data' };
+                displayWeatherData(currentWeatherData);
+            }
+        }
+
+        function exportToGPXD() {
+            if (!currentWeatherData || currentWeatherData.length === 0) {
+                showMessage('No waypoint data to export', 'error');
+                return;
+            }
+            
+            // Generate GPXD content
+            const gpxdContent = generateGPXD(currentWeatherData);
+            
+            // Create and download file
+            const blob = new Blob([gpxdContent], { type: 'application/xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `trip-${new Date().toISOString().split('T')[0]}.gpxd`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showMessage('GPXD file exported successfully!', 'success');
+        }
+
+        function generateGPXD(weatherData) {
+            const now = new Date().toISOString();
+            
+            let waypoints = '';
+            weatherData.forEach((point, index) => {
+                const arrival = point.date.toISOString();
+                const departure = new Date(point.date.getTime() + 24 * 60 * 60 * 1000).toISOString(); // +1 day
+                
+                waypoints += `
+    <waypoint lat="${point.lat}" lon="${point.lon}">
+      <n>${point.name}</n>
+      <desc>Weather: ${point.weather.temperature}°C, Wind: ${point.weather.windSpeed} km/h</desc>
+      <arrival>${arrival}</arrival>
+      <departure>${departure}</departure>
+      <stay>PT24H</stay>
+      <type>destination</type>
+    </waypoint>`;
+            });
+            
+            return `<?xml version="1.0" encoding="utf-8"?>
+<gpxd creator="TripWeather" version="1.0" 
+      xmlns="http://flylasse.github.io/gpxd/1.0" 
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  
+  <metadata>
+    <n>Trip Weather Plan</n>
+    <desc>Weather-planned trip with forecasts</desc>
+    <author>
+      <n>Trip Weather App</n>
+    </author>
+    <time>${now}</time>
+  </metadata>
+  
+  <trip>
+    <n>My Trip</n>
+    <type>mixed</type>
+    <travelers>1</travelers>
+    ${waypoints}
+    
+    <weather>
+      <preferences>
+        <preferred_temp_range min="15" max="30" unit="celsius"/>
+      </preferences>
+      <critical_parameters>
+        <parameter>precipitation</parameter>
+        <parameter>wind_speed</parameter>
+        <parameter>temperature</parameter>
+      </critical_parameters>
+    </weather>
+  </trip>
+</gpxd>`;
         }
 
         // PWA Service Worker Registration
