@@ -27,7 +27,7 @@ function testApiKey() {
   showMessage('🧪 Testing API key...', 'info');
   fetchWeatherDataWithRetry(37.7749, -122.4194, new Date())
     .then((weather) => {
-      showMessage(`✅ API test successful! SF today: ${weather.temperature}°C, ${weather.windSpeed} km/h wind`, 'success');
+      showMessage(`✅ API test successful! SF today: ${weather.temperature}°F, ${weather.windSpeed} mph wind`, 'success');
     })
     .catch((error) => {
       handleApiError(error);
@@ -56,7 +56,7 @@ async function fetchWeatherDataWithRetry(lat, lon, targetDate, retries = 3, dela
     lat,
     lon,
     model: 'gfs',
-    parameters: ['wind', 'temp', 'precip', 'rh', 'pressure'],
+    parameters: ['wind_u', 'wind_v', 'temp', 'precip', 'rh', 'pressure'],
     levels: ['surface'],
     key: apiKey
   };
@@ -91,7 +91,8 @@ function processWeatherData(data, targetDate) {
   if (
     !Array.isArray(data['ts']) ||
     !Array.isArray(data['temp-surface']) ||
-    !Array.isArray(data['wind-surface'])
+    !Array.isArray(data['wind_u-surface']) ||
+    !Array.isArray(data['wind_v-surface'])
   ) {
     console.error("Windy API returned unexpected data:", data);
     throw new Error(
@@ -100,7 +101,8 @@ function processWeatherData(data, targetDate) {
   }
 
   const tempArr = data['temp-surface'];
-  const windArr = data['wind-surface'];
+  const windUArr = data['wind_u-surface'];
+  const windVArr = data['wind_v-surface'];
   const times = data.ts;
 
   let closestIndex = 0;
@@ -115,12 +117,17 @@ function processWeatherData(data, targetDate) {
     }
   }
 
-  const tempC = Math.round(tempArr[closestIndex] - 273.15);
-  const windSpeed = Math.round(windArr[closestIndex] * 3.6);
+  const tempC = tempArr[closestIndex] - 273.15;
+  const tempF = Math.round((tempC * 9/5) + 32);
+
+  const u = windUArr[closestIndex];
+  const v = windVArr[closestIndex];
+  const windSpeedMps = Math.sqrt(u * u + v * v);
+  const windSpeedMph = Math.round(windSpeedMps * 2.23694);
 
   return {
-    temperature: tempC,
-    windSpeed: windSpeed
+    temperature: tempF,
+    windSpeed: windSpeedMph
   };
 }
 
