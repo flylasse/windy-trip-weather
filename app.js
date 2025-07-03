@@ -42,9 +42,53 @@ function loadSampleRoute() {
 }
 
 function handleFile(file) {
-  showMessage(`Loaded file: ${file.name || 'Sample route'}`, 'success');
-  // Here you’d normally parse the GPX content
+  const reader = new FileReader();
+
+  reader.onload = (e) => {
+    const text = e.target.result;
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(text, "text/xml");
+
+    // Try all point types
+    const trkpts = Array.from(xmlDoc.getElementsByTagName("trkpt"));
+    const rtepts = Array.from(xmlDoc.getElementsByTagName("rtept"));
+    const wpts = Array.from(xmlDoc.getElementsByTagName("wpt"));
+
+    const allPts = trkpts.concat(rtepts, wpts);
+
+    if (allPts.length === 0) {
+      showMessage("No trackpoints, routepoints, or waypoints found in GPX.", "error");
+      return;
+    }
+
+    showMessage(`Found ${allPts.length} points in GPX. Fetching weather...`, "info");
+
+    allPts.forEach((pt, i) => {
+      const lat = parseFloat(pt.getAttribute("lat"));
+      const lon = parseFloat(pt.getAttribute("lon"));
+      const timeEl = pt.getElementsByTagName("time")[0];
+      let time = new Date();
+      if (timeEl) {
+        time = new Date(timeEl.textContent);
+      }
+
+      console.log(`Point ${i}: lat=${lat}, lon=${lon}, time=${time}`);
+
+      fetchWeatherDataWithRetry(lat, lon, time)
+        .then((weather) => {
+          console.log(`Weather at point ${i}:`, weather);
+          showMessage(`Point ${i + 1}: ${weather.temperature}°F, ${weather.windSpeed} mph`, "success");
+        })
+        .catch((err) => {
+          console.error(err);
+          showMessage(`Error fetching weather for point ${i + 1}: ${err.message}`, "error");
+        });
+    });
+  };
+
+  reader.readAsText(file);
 }
+
 
 function showMessage(msg, type) {
   const el = document.getElementById('messages');
@@ -56,7 +100,7 @@ async function fetchWeatherDataWithRetry(lat, lon, targetDate, retries = 3, dela
     lat,
     lon,
     model: 'gfs',
-    parameters: ['wind', 'wind_u', 'wind_v', 'temp', 'precip', 'rh', 'pressure'],
+    parameters: ['wind', 'temp', 'precip', 'rh', 'pressure'],
     levels: ['surface'],
     key: apiKey
   };
