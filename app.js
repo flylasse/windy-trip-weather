@@ -78,3 +78,28 @@ function handleApiError(error) {
   console.error('API error:', error);
   showMessage(`❌ Windy API error: ${error.message}`, 'error');
 }
+
+function processWeatherData(data, targetDate) {
+  // extract arrays
+  const tempArr = data['temp-surface'];
+  const windArr = data['wind-surface'];
+  const times = data.ts;
+
+  // find closest forecast index
+  let closestIndex = 0;
+  let minDiff = Infinity;
+
+  for (let i = 0; i < times.length; i++) {
+    const forecastDate = new Date(times[i] * 1000);
+    const diff = Math.abs(forecastDate - targetDate);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closestIndex = i;
+    }
+  }
+
+  return {
+    temperature: Math.round(tempArr[closestIndex] - 273.15),
+    windSpeed: Math.round(windArr[closestIndex] * 3.6)
+  };
+}
