@@ -1,39 +1,64 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trip Weather Forecast</title>
-    <link rel="manifest" href="/manifest.json">
-    <link rel="stylesheet" href="/styles.css">
-</head>
-<body>
-    <h1>🌤️ Trip Weather Forecast</h1>
-    
-    <div>
-        <label for="apiKey">Windy API Key:</label>
-        <input type="password" id="apiKey" placeholder="Enter your Windy API Key">
-        <button onclick="saveApiKey()">Save API Key</button>
-        <button onclick="testApiKey()">🧪 Test API</button>
-    </div>
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    margin: 0;
+    padding: 2em;
+}
 
-    <div style="margin-top: 1em;">
-        <input type="file" id="fileInput" accept=".gpx,.gpxd,.xml">
-        <button onclick="loadSampleRoute()">🗺️ Sample Route</button>
-    </div>
+h1 {
+    text-align: center;
+    margin-bottom: 1em;
+}
 
-    <div id="messages"></div>
-    <div id="loading"></div>
+label, input, button {
+    font-size: 1em;
+}
 
-    <script src="/app.js"></script>
-    <script>
-        window.addEventListener('offline', () => {
-            showMessage('⚠️ You are offline. Weather updates will not work.', 'error');
-        });
+input[type="password"] {
+    padding: 0.5em;
+    width: 300px;
+    border-radius: 4px;
+    border: none;
+    margin-right: 0.5em;
+}
 
-        window.addEventListener('online', () => {
-            showMessage('✅ Back online!', 'success');
-        });
-    </script>
-</body>
-</html>
+input[type="password"]:focus {
+    outline: none;
+    box-shadow: 0 0 5px #fff;
+}
+
+button {
+    background-color: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 0.5em 1em;
+    margin: 0.2em;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #1e40af;
+}
+
+#messages div.success {
+    background: #10b981;
+    color: #fff;
+    padding: 0.5em;
+    border-radius: 4px;
+    margin-top: 1em;
+}
+
+#messages div.error {
+    background: #ef4444;
+    color: #fff;
+    padding: 0.5em;
+    border-radius: 4px;
+    margin-top: 1em;
+}
+
+#loading {
+    margin-top: 1em;
+    font-size: 1.2em;
+}
