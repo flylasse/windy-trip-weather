@@ -1,5 +1,13 @@
 let apiKey = localStorage.getItem('windyApiKey') || '';
 
+window.onload = () => {
+  const storedKey = localStorage.getItem('windyApiKey');
+  if (storedKey) {
+    document.getElementById('apiKey').value = storedKey;
+    apiKey = storedKey;
+  }
+};
+
 function saveApiKey() {
   const key = document.getElementById('apiKey').value.trim();
   if (key) {
@@ -27,7 +35,7 @@ function testApiKey() {
 }
 
 function loadSampleRoute() {
-  fetch('/default.gpx')
+  fetch('./default.gpx')
     .then(res => res.text())
     .then(text => handleFile(new Blob([text], { type: 'text/xml' })))
     .catch(err => showMessage(`Error loading sample route: ${err.message}`, 'error'));
@@ -35,11 +43,12 @@ function loadSampleRoute() {
 
 function handleFile(file) {
   showMessage(`Loaded file: ${file.name || 'Sample route'}`, 'success');
+  // Here you'd normally parse and process the GPX content
 }
 
 function showMessage(msg, type) {
   const el = document.getElementById('messages');
-  el.innerHTML = `<div class=\"${type}\">${msg}</div>`;
+  el.innerHTML = `<div class="${type}">${msg}</div>`;
 }
 
 async function fetchWeatherDataWithRetry(lat, lon, targetDate, retries = 3, delay = 1000) {
@@ -59,9 +68,12 @@ async function fetchWeatherDataWithRetry(lat, lon, targetDate, retries = 3, dela
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody)
       });
+
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
+
       return processWeatherData(data, targetDate);
+
     } catch (err) {
       console.error(`Attempt ${attempt} failed:`, err);
       if (attempt < retries) {
@@ -74,18 +86,15 @@ async function fetchWeatherDataWithRetry(lat, lon, targetDate, retries = 3, dela
   }
 }
 
-function handleApiError(error) {
-  console.error('API error:', error);
-  showMessage(`❌ Windy API error: ${error.message}`, 'error');
-}
-
 function processWeatherData(data, targetDate) {
-  // extract arrays
   const tempArr = data['temp-surface'];
   const windArr = data['wind-surface'];
   const times = data.ts;
 
-  // find closest forecast index
+  if (!tempArr || !windArr || !times) {
+    throw new Error('Unexpected data format from Windy API.');
+  }
+
   let closestIndex = 0;
   let minDiff = Infinity;
 
@@ -102,4 +111,9 @@ function processWeatherData(data, targetDate) {
     temperature: Math.round(tempArr[closestIndex] - 273.15),
     windSpeed: Math.round(windArr[closestIndex] * 3.6)
   };
+}
+
+function handleApiError(error) {
+  console.error('API error:', error);
+  showMessage(`❌ Windy API error: ${error.message}`, 'error');
 }
