@@ -240,6 +240,11 @@
             .weather-grid {
                 grid-template-columns: repeat(2, 1fr);
             }
+            
+            .card div[style*="grid-template-columns"] {
+                grid-template-columns: 1fr !important;
+                gap: 10px !important;
+            }
         }
     </style>
 </head>
@@ -249,7 +254,7 @@
             <h1>🌤️ Trip Weather</h1>
             <p>Upload your GPX route and get detailed weather forecasts for each waypoint</p>
             <div style="font-size: 0.8rem; color: rgba(255,255,255,0.7); margin-top: 10px;">
-                Version 1.2.04 | Clearer API Test Instructions
+                Version 1.2.05 | Improved 3-Step Workflow
             </div>
         </div>
 
@@ -260,19 +265,31 @@
                 <input type="password" id="apiKey" class="api-input" placeholder="Enter your Windy API key..." />
                 <div style="display: flex; gap: 10px; margin-top: 10px;">
                     <button class="btn" onclick="saveApiKey()">Save API Key</button>
-                    <button class="btn" onclick="testApiKey()" style="background: linear-gradient(45deg, #059669, #10b981);">🧪 Verify Key Works</button>
+                    <button class="btn" onclick="testApiKey()" style="background: linear-gradient(45deg, #059669, #10b981);">🧪 Sample SF Forecast</button>
                 </div>
                 <div style="font-size: 0.8rem; color: #6b7280; margin-top: 8px;">
-                    💡 The verify button tests your API key with a sample forecast for San Francisco
+                    💡 The sample button tests your API key with tomorrow's San Francisco weather
                 </div>
             </div>
 
-            <div class="upload-section" onclick="document.getElementById('fileInput').click()">
-                <div style="font-size: 1.5rem; margin-bottom: 10px; color: #666;">📁</div>
-                <div style="font-size: 1rem; font-weight: 600; margin-bottom: 5px;">Upload Different Route</div>
-                <div style="font-size: 0.8rem; color: #666;">Optional: Use your own GPX/GPXD file</div>
-                <input type="file" id="fileInput" accept=".gpx,.gpxd,.xml" />
-                <button class="btn" style="margin-top: 10px; font-size: 0.9rem; padding: 8px 16px;">Choose File</button>
+            <div class="card" style="margin-top: 20px;">
+                <h3 style="text-align: center; margin-bottom: 20px; color: #1f2937;">Choose Your Forecast Type</h3>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <button class="btn" onclick="loadDefaultRoute()" style="background: linear-gradient(45deg, #2563eb, #3b82f6); padding: 20px; height: auto; display: flex; flex-direction: column; align-items: center;">
+                        <div style="font-size: 2rem; margin-bottom: 10px;">🗺️</div>
+                        <div style="font-weight: 600; margin-bottom: 5px;">Sample Route Forecast</div>
+                        <div style="font-size: 0.8rem; opacity: 0.9;">Western US Road Trip</div>
+                    </button>
+                    
+                    <button class="btn" onclick="document.getElementById('fileInput').click()" style="background: linear-gradient(45deg, #059669, #10b981); padding: 20px; height: auto; display: flex; flex-direction: column; align-items: center;">
+                        <div style="font-size: 2rem; margin-bottom: 10px;">📁</div>
+                        <div style="font-weight: 600; margin-bottom: 5px;">Own Route Forecast</div>
+                        <div style="font-size: 0.8rem; opacity: 0.9;">Upload your GPX file</div>
+                    </button>
+                </div>
+                
+                <input type="file" id="fileInput" accept=".gpx,.gpxd,.xml" style="display: none;" />
             </div>
 
             <div class="loading">
@@ -345,28 +362,30 @@
             debugLog('init', `API key loaded from storage: ${apiKey.substring(0, 8)}...`);
         }
 
-        // Load default route on startup
+        // Load default route on startup or button click
         async function loadDefaultRoute() {
             if (!apiKey) {
-                debugLog('default-route', 'No API key available, skipping default route load');
+                debugLog('default-route', 'No API key available');
+                showMessage('Please enter and save your API key first', 'error');
                 return;
             }
 
             try {
                 debugLog('default-route', 'Loading default route...');
-                showLoading('🗺️ Loading default route...', 'Western US Road Trip');
+                showLoading('🗺️ Loading sample route...', 'Western US Road Trip - 11 waypoints');
                 
                 const response = await fetch('default.gpx');
                 if (!response.ok) {
-                    debugLog('default-route', 'Default GPX file not found, user will need to upload', 'warn');
+                    debugLog('default-route', 'Default GPX file not found', 'warn');
                     hideLoading();
+                    showMessage('❌ Default route file not found. Please upload your own GPX file.', 'error');
                     return;
                 }
                 
                 const gpxText = await response.text();
                 debugLog('default-route', `Default GPX loaded: ${gpxText.length} characters`);
                 
-                updateProgress('🗺️ Processing default route...', 'Analyzing waypoints...');
+                updateProgress('🗺️ Processing sample route...', 'Analyzing waypoints...');
                 const waypoints = parseGPX(gpxText);
                 
                 if (waypoints.length > 0) {
@@ -375,12 +394,13 @@
                 } else {
                     debugLog('default-route', 'No waypoints found in default route', 'warn');
                     hideLoading();
+                    showMessage('❌ No waypoints found in default route file.', 'error');
                 }
                 
             } catch (error) {
                 debugLog('default-route', `Error loading default route: ${error.message}`, 'error');
                 hideLoading();
-                // Don't show error message - just silently fail and let user upload
+                showMessage(`❌ Error loading sample route: ${error.message}`, 'error');
             }
         }
 
@@ -441,32 +461,7 @@
         const loadingDiv = document.querySelector('.loading');
         const waypointsDiv = document.querySelector('.waypoints');
 
-        // Drag and drop with better feedback
-        uploadSection.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadSection.classList.add('dragover');
-            const titleDiv = uploadSection.querySelector('div[style*="font-weight: 600"]');
-            if (titleDiv) titleDiv.textContent = 'Drop your file here!';
-        });
-
-        uploadSection.addEventListener('dragleave', () => {
-            uploadSection.classList.remove('dragover');
-            const titleDiv = uploadSection.querySelector('div[style*="font-weight: 600"]');
-            if (titleDiv) titleDiv.textContent = 'Upload Different Route';
-        });
-
-        uploadSection.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadSection.classList.remove('dragover');
-            const titleDiv = uploadSection.querySelector('div[style*="font-weight: 600"]');
-            if (titleDiv) titleDiv.textContent = 'Upload Different Route';
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                debugLog('file-drop', `File dropped: ${files[0].name}`);
-                handleFile(files[0]);
-            }
-        });
-
+        // File input handling
         fileInput.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
                 debugLog('file-select', `File selected: ${e.target.files[0].name}`);
