@@ -56,7 +56,7 @@ async function fetchWeatherDataWithRetry(lat, lon, targetDate, retries = 3, dela
     lat,
     lon,
     model: 'gfs',
-    parameters: ['wind_u', 'wind_v', 'temp', 'precip', 'rh', 'pressure'],
+    parameters: ['wind', 'wind_u', 'wind_v', 'temp', 'precip', 'rh', 'pressure'],
     levels: ['surface'],
     key: apiKey
   };
@@ -90,9 +90,7 @@ async function fetchWeatherDataWithRetry(lat, lon, targetDate, retries = 3, dela
 function processWeatherData(data, targetDate) {
   if (
     !Array.isArray(data['ts']) ||
-    !Array.isArray(data['temp-surface']) ||
-    !Array.isArray(data['wind_u-surface']) ||
-    !Array.isArray(data['wind_v-surface'])
+    !Array.isArray(data['temp-surface'])
   ) {
     console.error("Windy API returned unexpected data:", data);
     throw new Error(
@@ -101,8 +99,6 @@ function processWeatherData(data, targetDate) {
   }
 
   const tempArr = data['temp-surface'];
-  const windUArr = data['wind_u-surface'];
-  const windVArr = data['wind_v-surface'];
   const times = data.ts;
 
   let closestIndex = 0;
@@ -117,12 +113,29 @@ function processWeatherData(data, targetDate) {
     }
   }
 
+  // Temperature conversion
   const tempC = tempArr[closestIndex] - 273.15;
   const tempF = Math.round((tempC * 9/5) + 32);
 
-  const u = windUArr[closestIndex];
-  const v = windVArr[closestIndex];
-  const windSpeedMps = Math.sqrt(u * u + v * v);
+  // Defensive wind speed logic
+  let windSpeedMps;
+
+  if (Array.isArray(data["wind-surface"])) {
+    windSpeedMps = data["wind-surface"][closestIndex];
+    console.log("Using wind-surface data:", windSpeedMps);
+  } else if (
+    Array.isArray(data["wind_u-surface"]) &&
+    Array.isArray(data["wind_v-surface"])
+  ) {
+    const u = data["wind_u-surface"][closestIndex];
+    const v = data["wind_v-surface"][closestIndex];
+    windSpeedMps = Math.sqrt(u * u + v * v);
+    console.log("Calculated wind speed from U/V:", windSpeedMps);
+  } else {
+    console.error("Windy API missing wind data:", data);
+    throw new Error("Wind data not found in API response.");
+  }
+
   const windSpeedMph = Math.round(windSpeedMps * 2.23694);
 
   return {
