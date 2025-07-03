@@ -1,128 +1,36 @@
-// UPDATED: Clean initialization - no auto-loading
-let apiKey = localStorage.getItem('windyApiKey') || '';
-let currentWeatherData = [];
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trip Weather Forecast</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <h1>🌤️ Trip Weather Forecast</h1>
+    
+    <label for="apiKey">Windy API Key:</label>
+    <input type="text" id="apiKey">
+    <button onclick="saveApiKey()">Save API Key</button>
+    <button onclick="testApiKey()">🧪 Test API</button>
+    <br><br>
 
-// Load API key but don't auto-load anything
-if (apiKey) {
-    document.getElementById('apiKey').value = apiKey;
-    debugLog('init', `API key loaded from storage: ${apiKey.substring(0, 8)}...`);
-    // REMOVED: No auto-loading - user must click buttons explicitly
-}
+    <input type="file" id="fileInput" accept=".gpx,.gpxd,.xml">
+    <button onclick="loadSampleRoute()">🗺️ Sample Route</button>
+    
+    <div id="messages"></div>
+    <div id="loading"></div>
 
-// UPDATED: Save API key without auto-loading
-function saveApiKey() {
-    const key = document.getElementById('apiKey').value.trim();
-    if (key) {
-        localStorage.setItem('windyApiKey', key);
-        apiKey = key;
-        showMessage('✅ API key saved! Now you can load routes and get forecasts.', 'success');
-        // REMOVED: No auto-loading after saving key
-    } else {
-        showMessage('Please enter a valid API key', 'error');
-    }
-}
-
-// UPDATED: File input handling for both GPX and GPXD
-document.addEventListener('DOMContentLoaded', function() {
-    // GPX file input
-    const fileInput = document.getElementById('fileInput');
-    if (fileInput) {
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                debugLog('file-select', `GPX file selected: ${e.target.files[0].name}`);
-                handleFile(e.target.files[0]);
-            }
+    <script src="/app.js"></script>
+    <script>
+        window.addEventListener('offline', () => {
+            showMessage('⚠️ You are offline. Weather updates will not work.', 'error');
         });
-    }
-    
-    // GPXD file input  
-    const gpxdInput = document.getElementById('gpxdInput');
-    if (gpxdInput) {
-        gpxdInput.addEventListener('change', handleGPXDFile);
-    }
-    
-    debugLog('init', 'Trip Weather app initialized - ready for user input');
-});
 
-// UPDATED: Handle both GPX and GPXD files
-async function handleFile(file) {
-    debugLog('file-upload', `Processing file: ${file.name}, size: ${file.size} bytes`);
-    
-    showLoading('📁 File selected, validating...', `Processing: ${file.name}`);
-    
-    if (!apiKey) {
-        debugLog('api-check', 'No API key found', 'error');
-        hideLoading();
-        showMessage('Please enter your Windy API key first', 'error');
-        return;
-    }
-
-    const fileName = file.name.toLowerCase();
-    if (!fileName.endsWith('.gpx') && !fileName.endsWith('.gpxd') && !fileName.endsWith('.xml')) {
-        debugLog('file-validation', `Invalid file type: ${file.name}`, 'error');
-        hideLoading();
-        showMessage('Please upload a GPX, GPXD, or XML file', 'error');
-        return;
-    }
-
-    try {
-        updateProgress('📖 Reading file contents...', 'Please wait...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        debugLog('file-read', 'Reading file content...');
-        const text = await file.text();
-        debugLog('file-content', `File content length: ${text.length} characters`);
-        
-        updateProgress('🗺️ Parsing waypoints...', 'Analyzing route structure...');
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-        debugLog('parsing-start', 'Starting GPX/GPXD parsing...');
-        const waypoints = parseGPX(text);
-        debugLog('parsing-complete', `Parsed ${waypoints.length} waypoints`);
-        
-        if (waypoints.length === 0) {
-            debugLog('parsing-error', 'No waypoints found in file', 'error');
-            hideLoading();
-            showMessage('No waypoints found in file. Please check your file format.', 'error');
-            return;
-        }
-
-        updateProgress('🌤️ Fetching today\'s weather forecasts...', `Found ${waypoints.length} waypoints`);
-        await new Promise(resolve => setTimeout(resolve, 200));
-
-        debugLog('weather-fetch-start', `Starting weather fetch for ${waypoints.length} waypoints`);
-        await fetchWeatherForWaypoints(waypoints);
-        
-        const fileType = fileName.endsWith('.gpxd') ? 'GPXD' : 'GPX';
-        showMessage(`✅ Loaded ${waypoints.length} waypoints from ${fileType} file. Now adjust dates as needed!`, 'success');
-        
-    } catch (error) {
-        debugLog('file-error', error, 'error');
-        console.error('Error processing file:', error);
-        hideLoading();
-        showMessage('Error processing file: ' + error.message, 'error');
-    }
-}
-
-// UPDATED: Test API with clear feedback
-async function testApiKey() {
-    if (!apiKey) {
-        showMessage('Please enter and save your API key first', 'error');
-        return;
-    }
-
-    showLoading('🧪 Testing API key...', 'Checking San Francisco weather...');
-    
-    try {
-        // Test with San Francisco coordinates for today
-        const testWeather = await fetchWeatherData(37.7749, -122.4194, new Date());
-        hideLoading();
-        showMessage(`✅ API test successful! SF today: ${testWeather.temperature}°C, ${testWeather.windSpeed} km/h wind`, 'success');
-        debugLog('api-test', 'API test successful', testWeather);
-    } catch (error) {
-        hideLoading();
-        showMessage(`❌ API test failed: ${error.message}`, 'error');
-        debugLog('api-test', 'API test failed', 'error');
-        console.error('API test error:', error);
-    }
-}
+        window.addEventListener('online', () => {
+            showMessage('✅ Back online!', 'success');
+        });
+    </script>
+</body>
+</html>

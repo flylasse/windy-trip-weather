@@ -1,28 +1,30 @@
-const CACHE_NAME = 'trip-weather-v1';
+const CACHE_NAME = 'trip-weather-v2';
 const urlsToCache = [
   '/',
   '/index.html',
-  '/manifest.json'
+  '/manifest.json',
+  '/sw.js',
+  '/styles.css',
+  '/app.js',
+  '/default.gpx'
 ];
 
-// Install event - cache resources
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('Opened cache');
+        console.log('Opened expanded cache');
         return cache.addAll(urlsToCache);
       })
   );
 });
 
-// Fetch event - serve from cache when offline
 self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
-        // Return cached version or fetch from network
         if (response) {
+          console.log('Serving from cache:', event.request.url);
           return response;
         }
         return fetch(event.request);
@@ -30,7 +32,6 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {

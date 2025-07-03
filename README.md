@@ -4,6 +4,21 @@
 
 Transform your GPX routes into weather-aware travel plans with user-selected dates and detailed forecasts powered by the Windy API.
 
+---
+
+## 📂 Project Files Overview
+
+| File | Purpose |
+|------|---------|
+| `index.html` | App entry point and main UI structure |
+| `styles.css` | Stylesheet for layout and visual design |
+| `app.js` | JavaScript logic for file handling, API calls, and UI updates |
+| `sw.js` | Service worker handling offline caching and updates |
+| `manifest.json` | Defines app name, icons, and PWA configuration |
+| `default.gpx` | Sample route file for testing |
+
+---
+
 ## 🚀 Features
 
 ### For Travelers
@@ -22,6 +37,7 @@ Transform your GPX routes into weather-aware travel plans with user-selected dat
 - **🎨 Modern UI**: CSS Grid/Flexbox responsive design with smooth animations
 - **🐛 Debug-Friendly**: Comprehensive logging system for troubleshooting
 - **📋 Extensible**: Easy to add new weather parameters or data sources
+
 
 ## 📖 User Guide
 
