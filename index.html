@@ -1,39 +1,47 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trip Weather Forecast</title>
-    <link rel="manifest" href="/manifest.json">
-    <link rel="stylesheet" href="/styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trip Weather</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-    <h1>🌤️ Trip Weather Forecast</h1>
+  <div class="container">
+    <h1>🌤️ Trip Weather</h1>
+    <p class="subtitle">Upload your GPX route and get detailed weather forecasts for each waypoint</p>
+    <p class="version">Version 1.2.08 | Completely Removed Auto-Loading</p>
 
-    <div>
-        <label for="apiKey">Windy API Key:</label>
-        <input type="password" id="apiKey" placeholder="Enter your Windy API Key">
-        <button onclick="saveApiKey()">Save API Key</button>
-        <button onclick="testApiKey()">🧪 Test API</button>
-    </div>
+    <div class="card">
+      <h2>🔑 Windy API Setup</h2>
+      <p>Get your free API key from <a href="https://api.windy.com" target="_blank">api.windy.com</a></p>
+      <input type="password" id="apiKey" placeholder="Enter your Windy API Key">
+      <button class="btn save" onclick="saveApiKey()">Save API Key</button>
 
-    <div style="margin-top: 1em;">
-        <input type="file" id="fileInput" accept=".gpx,.gpxd,.xml">
-        <button onclick="loadSampleRoute()">🗺️ Sample Route</button>
+      <div class="button-group">
+        <button class="btn green" onclick="testApiKey()">🧪 Sample SF Forecast</button>
+        <button class="btn blue" onclick="loadSampleRoute()">🗺️ Sample Route</button>
+        <label class="btn red">
+          📂 Upload GPX
+          <input type="file" id="fileInput" accept=".gpx,.gpxd,.xml" hidden>
+        </label>
+      </div>
+      <p class="note">🗝️ Test your API key, try the sample route, or upload your own GPX file</p>
     </div>
 
     <div id="messages"></div>
     <div id="loading"></div>
+  </div>
 
-    <script src="/app.js"></script>
-    <script>
-        window.addEventListener("offline", function () {
-            showMessage("⚠️ You are offline. Weather updates will not work.", "error");
-        });
-
-        window.addEventListener("online", function () {
-            showMessage("✅ Back online!", "success");
-        });
-    </script>
+  <script src="/app.js"></script>
+  <script>
+    window.addEventListener('offline', () => {
+      showMessage('⚠️ You are offline. Weather updates will not work.', 'error');
+    });
+    window.addEventListener('online', () => {
+      showMessage('✅ Back online!', 'success');
+    });
+  </script>
 </body>
 </html>
