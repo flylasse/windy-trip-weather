@@ -241,9 +241,19 @@
                 grid-template-columns: repeat(2, 1fr);
             }
             
-            .card div[style*="grid-template-columns"] {
-                grid-template-columns: 1fr !important;
+            .api-setup div[style*="display: flex"] {
+                flex-direction: column !important;
                 gap: 10px !important;
+            }
+            
+            .api-setup div[style*="grid-template-columns"] {
+                grid-template-columns: 1fr !important;
+                gap: 8px !important;
+            }
+            
+            .api-setup .btn {
+                font-size: 0.8rem !important;
+                padding: 10px 6px !important;
             }
         }
     </style>
@@ -254,7 +264,7 @@
             <h1>🌤️ Trip Weather</h1>
             <p>Upload your GPX route and get detailed weather forecasts for each waypoint</p>
             <div style="font-size: 0.8rem; color: rgba(255,255,255,0.7); margin-top: 10px;">
-                Version 1.2.05 | Improved 3-Step Workflow
+                Version 1.2.07 | User-Controlled Actions & Cleaner UI
             </div>
         </div>
 
@@ -262,31 +272,27 @@
             <div class="api-setup">
                 <h3>🔑 Windy API Setup</h3>
                 <p>Get your free API key from <a href="https://api.windy.com" target="_blank">api.windy.com</a></p>
-                <input type="password" id="apiKey" class="api-input" placeholder="Enter your Windy API key..." />
-                <div style="display: flex; gap: 10px; margin-top: 10px;">
-                    <button class="btn" onclick="saveApiKey()">Save API Key</button>
-                    <button class="btn" onclick="testApiKey()" style="background: linear-gradient(45deg, #059669, #10b981);">🧪 Sample SF Forecast</button>
-                </div>
-                <div style="font-size: 0.8rem; color: #6b7280; margin-top: 8px;">
-                    💡 The sample button tests your API key with tomorrow's San Francisco weather
-                </div>
-            </div>
-
-            <div class="card" style="margin-top: 20px;">
-                <h3 style="text-align: center; margin-bottom: 20px; color: #1f2937;">Choose Your Forecast Type</h3>
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <button class="btn" onclick="loadDefaultRoute()" style="background: linear-gradient(45deg, #2563eb, #3b82f6); padding: 20px; height: auto; display: flex; flex-direction: column; align-items: center;">
-                        <div style="font-size: 2rem; margin-bottom: 10px;">🗺️</div>
-                        <div style="font-weight: 600; margin-bottom: 5px;">Sample Route Forecast</div>
-                        <div style="font-size: 0.8rem; opacity: 0.9;">Western US Road Trip</div>
-                    </button>
-                    
-                    <button class="btn" onclick="document.getElementById('fileInput').click()" style="background: linear-gradient(45deg, #059669, #10b981); padding: 20px; height: auto; display: flex; flex-direction: column; align-items: center;">
-                        <div style="font-size: 2rem; margin-bottom: 10px;">📁</div>
-                        <div style="font-weight: 600; margin-bottom: 5px;">Own Route Forecast</div>
-                        <div style="font-size: 0.8rem; opacity: 0.9;">Upload your GPX file</div>
-                    </button>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="password" id="apiKey" class="api-input" placeholder="Enter your Windy API key..." style="flex: 1; margin-top: 0;" />
+                    <button class="btn" onclick="saveApiKey()">Save API Key</button>
+                </div>
+                
+                <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                        <button class="btn" onclick="testApiKey()" style="background: linear-gradient(45deg, #059669, #10b981); font-size: 0.9rem; padding: 12px 8px;">
+                            🧪 Sample SF Forecast
+                        </button>
+                        <button class="btn" onclick="loadDefaultRoute()" style="background: linear-gradient(45deg, #2563eb, #3b82f6); font-size: 0.9rem; padding: 12px 8px;">
+                            🗺️ Sample Route
+                        </button>
+                        <button class="btn" onclick="document.getElementById('fileInput').click()" style="background: linear-gradient(45deg, #dc2626, #ef4444); font-size: 0.9rem; padding: 12px 8px;">
+                            📁 Upload GPX
+                        </button>
+                    </div>
+                    <div style="font-size: 0.8rem; color: #6b7280; margin-top: 8px; text-align: center;">
+                        💡 Test your API key, try the sample route, or upload your own GPX file
+                    </div>
                 </div>
                 
                 <input type="file" id="fileInput" accept=".gpx,.gpxd,.xml" style="display: none;" />
@@ -679,7 +685,34 @@
         }
 
         async function fetchWeatherData(lat, lon, targetDate) {
-            console.log('Fetching weather for:', lat, lon, 'on date:', targetDate);
+            debugLog('weather-api-start', `Fetching weather for: ${lat}, ${lon}, target date: ${targetDate}`);
+            
+            // Validate parameters
+            if (!lat || !lon) {
+                throw new Error('Invalid coordinates provided');
+            }
+            
+            // Validate and fix target date
+            let safeTargetDate;
+            if (!targetDate) {
+                debugLog('weather-api-date', 'No target date provided, using tomorrow', 'warn');
+                safeTargetDate = new Date();
+                safeTargetDate.setDate(safeTargetDate.getDate() + 1);
+            } else if (!(targetDate instanceof Date)) {
+                debugLog('weather-api-date', 'Converting target date to Date object');
+                safeTargetDate = new Date(targetDate);
+            } else {
+                safeTargetDate = targetDate;
+            }
+            
+            // Validate date is valid
+            if (isNaN(safeTargetDate.getTime())) {
+                debugLog('weather-api-date', 'Invalid target date, using tomorrow', 'warn');
+                safeTargetDate = new Date();
+                safeTargetDate.setDate(safeTargetDate.getDate() + 1);
+            }
+            
+            debugLog('weather-api-validated', `Using validated date: ${safeTargetDate}`);
             console.log('Using API key:', apiKey ? `${apiKey.substring(0, 8)}...` : 'NOT SET');
             
             const requestBody = {
@@ -711,7 +744,7 @@
                 }
 
                 const data = await response.json();
-                console.log('API response data:', data);
+                console.log('API response data keys:', Object.keys(data));
                 
                 // Check if we got valid data
                 if (!data.ts || data.ts.length === 0) {
@@ -719,7 +752,7 @@
                 }
                 
                 // Find the closest timestamp to our target date
-                const targetTimestamp = targetDate.getTime();
+                const targetTimestamp = safeTargetDate.getTime();
                 let closestIndex = 0;
                 let closestDiff = Math.abs(data.ts[0] - targetTimestamp);
                 
@@ -731,7 +764,7 @@
                     }
                 }
                 
-                console.log(`Target date: ${targetDate.toISOString()}`);
+                console.log(`Target date: ${safeTargetDate.toISOString()}`);
                 console.log(`Closest forecast: ${new Date(data.ts[closestIndex]).toISOString()}`);
                 console.log(`Time difference: ${Math.round(closestDiff / (1000 * 60 * 60))} hours`);
                 
@@ -749,7 +782,7 @@
                     humidity: humidity,
                     precipitation: precip,
                     forecastDate: new Date(data.ts[closestIndex]),
-                    requestedDate: targetDate,
+                    requestedDate: safeTargetDate,
                     hoursOffset: Math.round(closestDiff / (1000 * 60 * 60))
                 };
                 
@@ -845,6 +878,48 @@
 
         // Store the current weather data globally for date updates
         let currentWeatherData = [];
+
+        // Load default route only when user clicks button
+        async function loadDefaultRoute() {
+            if (!apiKey) {
+                debugLog('default-route', 'No API key available');
+                showMessage('Please enter and save your API key first', 'error');
+                return;
+            }
+
+            try {
+                debugLog('default-route', 'Loading default route...');
+                showLoading('🗺️ Loading sample route...', 'Western US Road Trip - 11 waypoints');
+                
+                const response = await fetch('default.gpx');
+                if (!response.ok) {
+                    debugLog('default-route', 'Default GPX file not found', 'warn');
+                    hideLoading();
+                    showMessage('❌ Default route file not found. Please upload your own GPX file.', 'error');
+                    return;
+                }
+                
+                const gpxText = await response.text();
+                debugLog('default-route', `Default GPX loaded: ${gpxText.length} characters`);
+                
+                updateProgress('🗺️ Processing sample route...', 'Analyzing waypoints...');
+                const waypoints = parseGPX(gpxText);
+                
+                if (waypoints.length > 0) {
+                    debugLog('default-route', `Default route parsed: ${waypoints.length} waypoints`);
+                    await fetchWeatherForWaypoints(waypoints);
+                } else {
+                    debugLog('default-route', 'No waypoints found in default route', 'warn');
+                    hideLoading();
+                    showMessage('❌ No waypoints found in default route file.', 'error');
+                }
+                
+            } catch (error) {
+                debugLog('default-route', `Error loading default route: ${error.message}`, 'error');
+                hideLoading();
+                showMessage(`❌ Error loading sample route: ${error.message}`, 'error');
+            }
+        }
 
         async function updateWaypointDate(index, newDateStr) {
             if (!currentWeatherData[index]) return;
