@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+        <gpx creator="Windy.com" version="1.1" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+            <rte>
+                <name>Windy.com track-Thu-03-Jul-2025-004928-GMT.gpx</name>
+                <rtept lat="38.1077" lon="-122.57150000000001">
+                                <name>1</name>
+                            </rtept><rtept lat="38.5274" lon="-121.97180000000003">
+                                <name>2</name>
+                            </rtept><rtept lat="40.9284" lon="-117.78879999999998">
+                                <name>3</name>
+                            </rtept><rtept lat="42.5732" lon="-114.44459999999998">
+                                <name>4</name>
+                            </rtept><rtept lat="43.4518" lon="-110.73559999999998">
+                                <name>5</name>
+                            </rtept><rtept lat="44.6516" lon="-110.64769999999999">
+                                <name>6</name>
+                            </rtept><rtept lat="46.8403" lon="-113.9941">
+                                <name>7</name>
+                            </rtept><rtept lat="47.475" lon="-115.9264">
+                                <name>8</name>
+                            </rtept><rtept lat="44.0456" lon="-121.32529999999997">
+                                <name>9</name>
+                            </rtept><rtept lat="41.2829" lon="-122.3392">
+                                <name>10</name>
+                            </rtept><rtept lat="38.108" lon="-122.57190000000003">
+                                <name>11</name>
+                            </rtept>
+            </rte>
+        </gpx>
