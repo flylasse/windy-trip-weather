@@ -87,13 +87,16 @@ async function fetchWeatherDataWithRetry(lat, lon, targetDate, retries = 3, dela
 }
 
 function processWeatherData(data, targetDate) {
+  if (!data['ts'] || !data['temp-surface'] || !data['wind-surface']) {
+    console.error("Windy API returned unexpected data:", data);
+    throw new Error(
+      data.message || 'Unexpected data format from Windy API.'
+    );
+  }
+
   const tempArr = data['temp-surface'];
   const windArr = data['wind-surface'];
   const times = data.ts;
-
-  if (!tempArr || !windArr || !times) {
-    throw new Error('Unexpected data format from Windy API.');
-  }
 
   let closestIndex = 0;
   let minDiff = Infinity;
@@ -112,6 +115,7 @@ function processWeatherData(data, targetDate) {
     windSpeed: Math.round(windArr[closestIndex] * 3.6)
   };
 }
+
 
 function handleApiError(error) {
   console.error('API error:', error);
