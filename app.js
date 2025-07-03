@@ -27,7 +27,7 @@ function testApiKey() {
   showMessage('🧪 Testing API key...', 'info');
   fetchWeatherDataWithRetry(37.7749, -122.4194, new Date())
     .then((weather) => {
-      showMessage(`✅ API test successful! SF today: ${weather.temperature}°F, ${weather.windSpeed} mph wind`, 'success');
+      showMessage(`✅ API test successful! SF today: ${weather.temperature}°F, ${weather.windSpeed} mph wind, ${weather.precipitation.toFixed(2)} mm precip`, 'success');
     })
     .catch((error) => {
       handleApiError(error);
@@ -37,7 +37,7 @@ function testApiKey() {
 function loadSampleRoute() {
   fetch('./default.gpx')
     .then(res => res.text())
-    .then(text => handleFile(new Blob([text], { type: 'text/xml' })))
+    .then(text => handleFile(new Blob([text], { type: 'text/xml', name: 'Sample route' })))
     .catch(err => showMessage(`Error loading sample route: ${err.message}`, 'error'));
 }
 
@@ -49,11 +49,9 @@ function handleFile(file) {
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(text, "text/xml");
 
-    // Try all point types
     const trkpts = Array.from(xmlDoc.getElementsByTagName("trkpt"));
     const rtepts = Array.from(xmlDoc.getElementsByTagName("rtept"));
     const wpts = Array.from(xmlDoc.getElementsByTagName("wpt"));
-
     const allPts = trkpts.concat(rtepts, wpts);
 
     if (allPts.length === 0) {
@@ -63,25 +61,44 @@ function handleFile(file) {
 
     showMessage(`Found ${allPts.length} points in GPX. Fetching weather...`, "info");
 
+    const results = [];
+
     allPts.forEach((pt, i) => {
       const lat = parseFloat(pt.getAttribute("lat"));
       const lon = parseFloat(pt.getAttribute("lon"));
-      const timeEl = pt.getElementsByTagName("time")[0];
+
       let time = new Date();
+      const timeEl = pt.getElementsByTagName("time")[0];
       if (timeEl) {
         time = new Date(timeEl.textContent);
       }
 
-      console.log(`Point ${i}: lat=${lat}, lon=${lon}, time=${time}`);
+      let name = `Point ${i + 1}`;
+      const nameEl = pt.getElementsByTagName("name")[0];
+      if (nameEl && nameEl.textContent) {
+        name = nameEl.textContent;
+      }
+
+      console.log(`→ ${name}: lat=${lat}, lon=${lon}, time=${time}`);
 
       fetchWeatherDataWithRetry(lat, lon, time)
         .then((weather) => {
-          console.log(`Weather at point ${i}:`, weather);
-          showMessage(`Point ${i + 1}: ${weather.temperature}°F, ${weather.windSpeed} mph`, "success");
+          console.log(`Weather at ${name}:`, weather);
+          results.push({
+            name,
+            lat,
+            lon,
+            ...weather
+          });
+
+          // Render once all requests are done
+          if (results.length === allPts.length) {
+            renderResults(results);
+          }
         })
         .catch((err) => {
           console.error(err);
-          showMessage(`Error fetching weather for point ${i + 1}: ${err.message}`, "error");
+          showMessage(`Error fetching weather for ${name}: ${err.message}`, "error");
         });
     });
   };
@@ -89,6 +106,25 @@ function handleFile(file) {
   reader.readAsText(file);
 }
 
+function renderResults(results) {
+  let html = '<h3>Trip Forecast</h3><ul>';
+
+  results.forEach((pt) => {
+    html += `
+      <li>
+        <strong>${pt.name}</strong>: 
+        ${pt.temperature}°F, 
+        ${pt.windSpeed} mph wind, 
+        ${pt.precipitation.toFixed(2)} mm precipitation
+        <br>
+        <small>(${pt.lat.toFixed(5)}, ${pt.lon.toFixed(5)})</small>
+      </li>
+    `;
+  });
+
+  html += '</ul>';
+  document.getElementById('messages').innerHTML = html;
+}
 
 function showMessage(msg, type) {
   const el = document.getElementById('messages');
@@ -134,7 +170,9 @@ async function fetchWeatherDataWithRetry(lat, lon, targetDate, retries = 3, dela
 function processWeatherData(data, targetDate) {
   if (
     !Array.isArray(data['ts']) ||
-    !Array.isArray(data['temp-surface'])
+    !Array.isArray(data['temp-surface']) ||
+    !Array.isArray(data['wind-surface']) ||
+    !Array.isArray(data['precip-surface'])
   ) {
     console.error("Windy API returned unexpected data:", data);
     throw new Error(
@@ -143,6 +181,8 @@ function processWeatherData(data, targetDate) {
   }
 
   const tempArr = data['temp-surface'];
+  const windArr = data['wind-surface'];
+  const precipArr = data['precip-surface'];
   const times = data.ts;
 
   let closestIndex = 0;
@@ -157,34 +197,18 @@ function processWeatherData(data, targetDate) {
     }
   }
 
-  // Temperature conversion
   const tempC = tempArr[closestIndex] - 273.15;
   const tempF = Math.round((tempC * 9/5) + 32);
 
-  // Defensive wind speed logic
-  let windSpeedMps;
-
-  if (Array.isArray(data["wind-surface"])) {
-    windSpeedMps = data["wind-surface"][closestIndex];
-    console.log("Using wind-surface data:", windSpeedMps);
-  } else if (
-    Array.isArray(data["wind_u-surface"]) &&
-    Array.isArray(data["wind_v-surface"])
-  ) {
-    const u = data["wind_u-surface"][closestIndex];
-    const v = data["wind_v-surface"][closestIndex];
-    windSpeedMps = Math.sqrt(u * u + v * v);
-    console.log("Calculated wind speed from U/V:", windSpeedMps);
-  } else {
-    console.error("Windy API missing wind data:", data);
-    throw new Error("Wind data not found in API response.");
-  }
-
+  const windSpeedMps = windArr[closestIndex];
   const windSpeedMph = Math.round(windSpeedMps * 2.23694);
+
+  const precipitation = precipArr[closestIndex] || 0;
 
   return {
     temperature: tempF,
-    windSpeed: windSpeedMph
+    windSpeed: windSpeedMph,
+    precipitation
   };
 }
 
