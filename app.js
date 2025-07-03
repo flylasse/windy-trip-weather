@@ -43,7 +43,7 @@ function loadSampleRoute() {
 
 function handleFile(file) {
   showMessage(`Loaded file: ${file.name || 'Sample route'}`, 'success');
-  // Here you'd normally parse and process the GPX content
+  // You'd normally parse the GPX content here.
 }
 
 function showMessage(msg, type) {
@@ -56,7 +56,7 @@ async function fetchWeatherDataWithRetry(lat, lon, targetDate, retries = 3, dela
     lat,
     lon,
     model: 'gfs',
-    parameters: ['wind', 'temp', 'precip', 'rh', 'pressure'],
+    parameters: ['wind_u', 'wind_v', 'temp', 'precip', 'rh', 'pressure'],
     levels: ['surface'],
     key: apiKey
   };
@@ -71,6 +71,7 @@ async function fetchWeatherDataWithRetry(lat, lon, targetDate, retries = 3, dela
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
+      console.log("Windy API response:", data);
 
       return processWeatherData(data, targetDate);
 
@@ -90,7 +91,8 @@ function processWeatherData(data, targetDate) {
   if (
     !Array.isArray(data['ts']) ||
     !Array.isArray(data['temp-surface']) ||
-    !Array.isArray(data['wind-surface'])
+    !Array.isArray(data['wind_u-surface']) ||
+    !Array.isArray(data['wind_v-surface'])
   ) {
     console.error("Windy API returned unexpected data:", data);
     throw new Error(
@@ -99,7 +101,8 @@ function processWeatherData(data, targetDate) {
   }
 
   const tempArr = data['temp-surface'];
-  const windArr = data['wind-surface'];
+  const windUArr = data['wind_u-surface'];
+  const windVArr = data['wind_v-surface'];
   const times = data.ts;
 
   let closestIndex = 0;
@@ -114,13 +117,16 @@ function processWeatherData(data, targetDate) {
     }
   }
 
+  const tempC = Math.round(tempArr[closestIndex] - 273.15);
+  const u = windUArr[closestIndex];
+  const v = windVArr[closestIndex];
+  const windSpeed = Math.round(Math.sqrt(u * u + v * v) * 3.6);
+
   return {
-    temperature: Math.round(tempArr[closestIndex] - 273.15),
-    windSpeed: Math.round(windArr[closestIndex] * 3.6)
+    temperature: tempC,
+    windSpeed: windSpeed
   };
 }
-
-
 
 function handleApiError(error) {
   console.error('API error:', error);
