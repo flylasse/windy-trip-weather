@@ -248,7 +248,7 @@
             <h1>🌤️ Trip Weather</h1>
             <p>Upload your GPX route and get detailed weather forecasts for each waypoint</p>
             <div style="font-size: 0.8rem; color: rgba(255,255,255,0.7); margin-top: 10px;">
-                Version 1.2.01 | Enhanced Logging & Debugging Pipeline
+                Version 1.2.02 | Better Loading States & User Feedback
             </div>
         </div>
 
@@ -271,7 +271,8 @@
 
             <div class="loading">
                 <div class="spinner"></div>
-                <p>Fetching weather data for your waypoints...</p>
+                <div id="loadingText">Processing your file...</div>
+                <div id="loadingProgress" style="margin-top: 10px; font-size: 0.9rem; color: #6b7280;"></div>
             </div>
 
             <div class="waypoints"></div>
@@ -279,6 +280,37 @@
     </div>
 
     <script>
+        // UI feedback functions
+        function showLoading(text = 'Processing...', progress = '') {
+            const loadingDiv = document.querySelector('.loading');
+            const loadingText = document.getElementById('loadingText');
+            const loadingProgress = document.getElementById('loadingProgress');
+            
+            if (loadingText) loadingText.textContent = text;
+            if (loadingProgress) loadingProgress.textContent = progress;
+            
+            loadingDiv.style.display = 'block';
+            waypointsDiv.style.display = 'none';
+            
+            debugLog('ui-loading', `Showing: ${text} | ${progress}`);
+        }
+
+        function hideLoading() {
+            const loadingDiv = document.querySelector('.loading');
+            loadingDiv.style.display = 'none';
+            debugLog('ui-loading', 'Loading hidden');
+        }
+
+        function updateProgress(text, progress = '') {
+            const loadingText = document.getElementById('loadingText');
+            const loadingProgress = document.getElementById('loadingProgress');
+            
+            if (loadingText) loadingText.textContent = text;
+            if (loadingProgress) loadingProgress.textContent = progress;
+            
+            debugLog('ui-progress', `Updated: ${text} | ${progress}`);
+        }
+
         // Debug logging utility
         function debugLog(step, data, level = 'info') {
             const timestamp = new Date().toLocaleTimeString();
@@ -354,27 +386,32 @@
         const loadingDiv = document.querySelector('.loading');
         const waypointsDiv = document.querySelector('.waypoints');
 
-        // Drag and drop
+        // Drag and drop with better feedback
         uploadSection.addEventListener('dragover', (e) => {
             e.preventDefault();
             uploadSection.classList.add('dragover');
+            uploadSection.querySelector('h3').textContent = 'Drop your file here!';
         });
 
         uploadSection.addEventListener('dragleave', () => {
             uploadSection.classList.remove('dragover');
+            uploadSection.querySelector('h3').textContent = 'Upload GPX/GPXD File';
         });
 
         uploadSection.addEventListener('drop', (e) => {
             e.preventDefault();
             uploadSection.classList.remove('dragover');
+            uploadSection.querySelector('h3').textContent = 'Upload GPX/GPXD File';
             const files = e.dataTransfer.files;
             if (files.length > 0) {
+                debugLog('file-drop', `File dropped: ${files[0].name}`);
                 handleFile(files[0]);
             }
         });
 
         fileInput.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
+                debugLog('file-select', `File selected: ${e.target.files[0].name}`);
                 handleFile(e.target.files[0]);
             }
         });
@@ -382,26 +419,34 @@
         async function handleFile(file) {
             debugLog('file-upload', `Processing file: ${file.name}, size: ${file.size} bytes`);
             
+            // Immediate feedback
+            showLoading('📁 File selected, validating...', `Processing: ${file.name}`);
+            
             if (!apiKey) {
                 debugLog('api-check', 'No API key found', 'error');
+                hideLoading();
                 showMessage('Please enter your Windy API key first', 'error');
                 return;
             }
 
             if (!file.name.toLowerCase().endsWith('.gpx') && !file.name.toLowerCase().endsWith('.gpxd')) {
                 debugLog('file-validation', `Invalid file type: ${file.name}`, 'error');
+                hideLoading();
                 showMessage('Please upload a GPX or GPXD file', 'error');
                 return;
             }
 
             try {
-                loadingDiv.style.display = 'block';
-                waypointsDiv.style.display = 'none';
+                updateProgress('📖 Reading file contents...', 'Please wait...');
+                await new Promise(resolve => setTimeout(resolve, 100)); // Small delay to show loading
 
                 debugLog('file-read', 'Reading file content...');
                 const text = await file.text();
                 debugLog('file-content', `File content length: ${text.length} characters`);
                 debugLog('file-preview', `First 200 chars: ${text.substring(0, 200)}`);
+                
+                updateProgress('🗺️ Parsing waypoints...', 'Analyzing route structure...');
+                await new Promise(resolve => setTimeout(resolve, 200)); // Allow UI to update
                 
                 debugLog('parsing-start', 'Starting GPX/GPXD parsing...');
                 const waypoints = parseGPX(text);
@@ -409,10 +454,13 @@
                 
                 if (waypoints.length === 0) {
                     debugLog('parsing-error', 'No waypoints found in file', 'error');
-                    showMessage('No waypoints found in GPX file', 'error');
-                    loadingDiv.style.display = 'none';
+                    hideLoading();
+                    showMessage('No waypoints found in GPX file. Please check your file format.', 'error');
                     return;
                 }
+
+                updateProgress('🌤️ Fetching weather forecasts...', `Found ${waypoints.length} waypoints`);
+                await new Promise(resolve => setTimeout(resolve, 200)); // Allow UI to update
 
                 debugLog('weather-fetch-start', `Starting weather fetch for ${waypoints.length} waypoints`);
                 await fetchWeatherForWaypoints(waypoints);
@@ -420,8 +468,8 @@
             } catch (error) {
                 debugLog('file-error', error, 'error');
                 console.error('Error processing file:', error);
-                showMessage('Error processing GPX file: ' + error.message, 'error');
-                loadingDiv.style.display = 'none';
+                hideLoading();
+                showMessage('Error processing file: ' + error.message, 'error');
             }
         }
 
@@ -751,6 +799,8 @@
             const newDate = new Date(newDateStr);
             const point = currentWeatherData[index];
             
+            debugLog('date-update', `Updating ${point.name} from ${point.date.toDateString()} to ${newDate.toDateString()}`);
+            
             // Update the date
             point.date = newDate;
             
@@ -758,21 +808,29 @@
             const waypointDiv = document.querySelectorAll('.waypoint')[index + 1]; // +1 for export button
             const weatherGrid = waypointDiv.querySelector('.weather-grid');
             if (weatherGrid) {
-                weatherGrid.innerHTML = '<div style="text-align: center; padding: 20px;">Updating forecast...</div>';
+                weatherGrid.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #2563eb;">
+                        <div class="spinner" style="width: 20px; height: 20px; margin: 0 auto 10px;"></div>
+                        <div>Updating forecast for ${newDate.toDateString()}...</div>
+                    </div>`;
             }
             
             try {
                 // Fetch new weather data
+                debugLog('date-update-fetch', `Fetching new weather for ${point.name} on ${newDate.toDateString()}`);
                 const weather = await fetchWeatherData(point.lat, point.lon, newDate);
                 point.weather = weather;
                 
                 // Update the display
                 displayWeatherData(currentWeatherData);
                 
+                showMessage(`✅ Updated forecast for ${point.name} on ${newDate.toDateString()}`, 'success');
+                
             } catch (error) {
                 console.error('Error updating weather:', error);
                 point.weather = { error: 'Failed to fetch updated weather data' };
                 displayWeatherData(currentWeatherData);
+                showMessage(`❌ Failed to update forecast for ${point.name}`, 'error');
             }
         }
 
