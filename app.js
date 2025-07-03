@@ -87,7 +87,11 @@ async function fetchWeatherDataWithRetry(lat, lon, targetDate, retries = 3, dela
 }
 
 function processWeatherData(data, targetDate) {
-  if (!data['ts'] || !data['temp-surface'] || !data['wind-surface']) {
+  if (
+    !Array.isArray(data['ts']) ||
+    !Array.isArray(data['temp-surface']) ||
+    !Array.isArray(data['wind-surface'])
+  ) {
     console.error("Windy API returned unexpected data:", data);
     throw new Error(
       data.message || 'Unexpected data format from Windy API.'
@@ -115,6 +119,7 @@ function processWeatherData(data, targetDate) {
     windSpeed: Math.round(windArr[closestIndex] * 3.6)
   };
 }
+
 
 
 function handleApiError(error) {
