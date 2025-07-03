@@ -264,7 +264,7 @@
             <h1>🌤️ Trip Weather</h1>
             <p>Upload your GPX route and get detailed weather forecasts for each waypoint</p>
             <div style="font-size: 0.8rem; color: rgba(255,255,255,0.7); margin-top: 10px;">
-                Version 1.2.07 | User-Controlled Actions & Cleaner UI
+                Version 1.2.08 | Completely Removed Auto-Loading
             </div>
         </div>
 
@@ -366,6 +366,7 @@
         if (apiKey) {
             document.getElementById('apiKey').value = apiKey;
             debugLog('init', `API key loaded from storage: ${apiKey.substring(0, 8)}...`);
+            // Note: No auto-loading - user must click buttons explicitly
         }
 
         // Load default route on startup or button click
