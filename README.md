@@ -19,6 +19,22 @@ Transform your GPX routes into weather-aware travel plans with user-selected dat
 
 ---
 
+## 🌐 Where to Run This Application
+
+The app is publicly accessible here:
+
+[https://flylasse.github.io/windy-trip-weather/](https://flylasse.github.io/windy-trip-weather/)
+
+When deploying to GitHub Pages:
+- All file paths are **relative** (e.g., `./styles.css`) to ensure proper loading.
+- You must serve from the `main` branch or `docs/` folder depending on your repository settings.
+
+If you fork or rename the repository:
+- Update the `<link>` and `<script>` tags in `index.html` to point to your new path.
+- Clear your browser cache after updating to avoid stale assets.
+
+---
+
 ## 🚀 Features
 
 ### For Travelers

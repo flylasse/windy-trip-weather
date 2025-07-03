@@ -1,12 +1,12 @@
 const CACHE_NAME = 'trip-weather-v2';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/sw.js',
-  '/styles.css',
-  '/app.js',
-  '/default.gpx'
+  './',
+  './index.html',
+  './manifest.json',
+  './sw.js',
+  './styles.css',
+  './app.js',
+  './default.gpx'
 ];
 
 self.addEventListener('install', event => {
