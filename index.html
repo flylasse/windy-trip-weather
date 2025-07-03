@@ -248,7 +248,7 @@
             <h1>🌤️ Trip Weather</h1>
             <p>Upload your GPX route and get detailed weather forecasts for each waypoint</p>
             <div style="font-size: 0.8rem; color: rgba(255,255,255,0.7); margin-top: 10px;">
-                Version 1.2 | Date Safety Fixes & Enhanced Debugging
+                Version 1.2.01 | Enhanced Logging & Debugging Pipeline
             </div>
         </div>
 
@@ -279,9 +279,32 @@
     </div>
 
     <script>
+        // Debug logging utility
+        function debugLog(step, data, level = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = `[${timestamp}] [${step.toUpperCase()}]`;
+            
+            switch(level) {
+                case 'error':
+                    console.error(prefix, data);
+                    break;
+                case 'warn':
+                    console.warn(prefix, data);
+                    break;
+                default:
+                    console.log(prefix, data);
+            }
+            
+            // Also show in UI for mobile debugging
+            if (level === 'error') {
+                showMessage(`DEBUG ERROR: ${step} - ${JSON.stringify(data)}`, 'error');
+            }
+        }
+
         let apiKey = localStorage.getItem('windyApiKey') || '';
         if (apiKey) {
             document.getElementById('apiKey').value = apiKey;
+            debugLog('init', `API key loaded from storage: ${apiKey.substring(0, 8)}...`);
         }
 
         function saveApiKey() {
@@ -357,12 +380,16 @@
         });
 
         async function handleFile(file) {
+            debugLog('file-upload', `Processing file: ${file.name}, size: ${file.size} bytes`);
+            
             if (!apiKey) {
+                debugLog('api-check', 'No API key found', 'error');
                 showMessage('Please enter your Windy API key first', 'error');
                 return;
             }
 
             if (!file.name.toLowerCase().endsWith('.gpx') && !file.name.toLowerCase().endsWith('.gpxd')) {
+                debugLog('file-validation', `Invalid file type: ${file.name}`, 'error');
                 showMessage('Please upload a GPX or GPXD file', 'error');
                 return;
             }
@@ -371,18 +398,27 @@
                 loadingDiv.style.display = 'block';
                 waypointsDiv.style.display = 'none';
 
+                debugLog('file-read', 'Reading file content...');
                 const text = await file.text();
+                debugLog('file-content', `File content length: ${text.length} characters`);
+                debugLog('file-preview', `First 200 chars: ${text.substring(0, 200)}`);
+                
+                debugLog('parsing-start', 'Starting GPX/GPXD parsing...');
                 const waypoints = parseGPX(text);
+                debugLog('parsing-complete', `Parsed ${waypoints.length} waypoints`);
                 
                 if (waypoints.length === 0) {
+                    debugLog('parsing-error', 'No waypoints found in file', 'error');
                     showMessage('No waypoints found in GPX file', 'error');
                     loadingDiv.style.display = 'none';
                     return;
                 }
 
+                debugLog('weather-fetch-start', `Starting weather fetch for ${waypoints.length} waypoints`);
                 await fetchWeatherForWaypoints(waypoints);
                 
             } catch (error) {
+                debugLog('file-error', error, 'error');
                 console.error('Error processing file:', error);
                 showMessage('Error processing GPX file: ' + error.message, 'error');
                 loadingDiv.style.display = 'none';
@@ -390,24 +426,27 @@
         }
 
         function parseGPX(gpxText) {
+            debugLog('parse-start', 'Starting XML parsing...');
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(gpxText, 'text/xml');
             
             const waypoints = [];
             const isGPXD = xmlDoc.documentElement.tagName === 'gpxd';
             
-            console.log('Parsing file, is GPXD:', isGPXD);
+            debugLog('parse-type', `Document type: ${xmlDoc.documentElement.tagName}, isGPXD: ${isGPXD}`);
             
             if (isGPXD) {
-                // Parse GPXD format with dates
+                debugLog('gpxd-parse', 'Parsing GPXD format...');
                 const waypointElements = xmlDoc.getElementsByTagName('waypoint');
-                console.log('Found GPXD waypoints:', waypointElements.length);
+                debugLog('gpxd-waypoints', `Found ${waypointElements.length} GPXD waypoint elements`);
                 
                 for (let wp of waypointElements) {
                     const lat = parseFloat(wp.getAttribute('lat'));
                     const lon = parseFloat(wp.getAttribute('lon'));
                     const nameElement = wp.getElementsByTagName('n')[0];
                     const name = nameElement ? nameElement.textContent : `Waypoint ${waypoints.length + 1}`;
+                    
+                    debugLog('gpxd-waypoint', `Processing: ${name} at ${lat}, ${lon}`);
                     
                     const arrivalElement = wp.getElementsByTagName('arrival')[0];
                     const departureElement = wp.getElementsByTagName('departure')[0];
@@ -416,6 +455,7 @@
                     if (arrivalElement && departureElement) {
                         const arrival = new Date(arrivalElement.textContent);
                         const departure = new Date(departureElement.textContent);
+                        debugLog('gpxd-dates', `Arrival: ${arrival}, Departure: ${departure}`);
                         
                         // Generate dates for each day of stay
                         const currentDate = new Date(arrival);
@@ -424,19 +464,20 @@
                             currentDate.setDate(currentDate.getDate() + 1);
                         }
                     } else if (arrivalElement) {
-                        dates.push(new Date(arrivalElement.textContent));
+                        const arrival = new Date(arrivalElement.textContent);
+                        dates.push(arrival);
+                        debugLog('gpxd-single-date', `Single date: ${arrival}`);
                     }
                     
-                    console.log(`GPXD waypoint: ${name}, dates:`, dates);
+                    debugLog('gpxd-final-dates', `Final dates for ${name}:`, dates);
                     waypoints.push({ lat, lon, name, type: 'gpxd', dates });
                 }
             } else {
-                // Parse standard GPX format
-                console.log('Parsing as standard GPX');
+                debugLog('gpx-parse', 'Parsing standard GPX format...');
                 
                 // Parse waypoints
                 const wptElements = xmlDoc.getElementsByTagName('wpt');
-                console.log('Found wpt elements:', wptElements.length);
+                debugLog('gpx-wpt', `Found ${wptElements.length} wpt elements`);
                 
                 for (let wpt of wptElements) {
                     const lat = parseFloat(wpt.getAttribute('lat'));
@@ -444,17 +485,17 @@
                     const nameElement = wpt.getElementsByTagName('name')[0];
                     const name = nameElement ? nameElement.textContent : `Waypoint ${waypoints.length + 1}`;
                     
-                    // Default to today for GPX files
                     const today = new Date();
-                    console.log(`GPX waypoint: ${name}, defaulting to today:`, today);
+                    debugLog('gpx-waypoint', `GPX waypoint: ${name} at ${lat}, ${lon}, defaulting to ${today}`);
                     waypoints.push({ lat, lon, name, type: 'waypoint', dates: [today] });
                 }
                 
                 // Parse route points (rtept) - This is what Windy exports!
                 const rteptElements = xmlDoc.getElementsByTagName('rtept');
-                console.log('Found rtept elements:', rteptElements.length);
+                debugLog('gpx-rtept', `Found ${rteptElements.length} rtept elements`);
                 
-                for (let rtept of rteptElements) {
+                for (let i = 0; i < rteptElements.length; i++) {
+                    const rtept = rteptElements[i];
                     const lat = parseFloat(rtept.getAttribute('lat'));
                     const lon = parseFloat(rtept.getAttribute('lon'));
                     const nameElement = rtept.getElementsByTagName('name')[0];
@@ -462,17 +503,17 @@
                     
                     // Default to today + index days for route points
                     const futureDate = new Date();
-                    futureDate.setDate(futureDate.getDate() + waypoints.length);
-                    console.log(`GPX route point: ${name}, date:`, futureDate);
+                    futureDate.setDate(futureDate.getDate() + i);
+                    debugLog('gpx-route-point', `Route point ${i}: ${name} at ${lat}, ${lon}, date: ${futureDate}`);
                     waypoints.push({ lat, lon, name, type: 'route', dates: [futureDate] });
                 }
                 
                 // Parse track points (route) - fallback for other GPX formats
                 const trkpts = xmlDoc.getElementsByTagName('trkpt');
-                console.log('Found trkpt elements:', trkpts.length);
+                debugLog('gpx-trkpt', `Found ${trkpts.length} trkpt elements`);
                 
                 if (trkpts.length > 0 && waypoints.length === 0) {
-                    // Only use track points if no route points found
+                    debugLog('gpx-fallback', 'Using track points as fallback...');
                     for (let i = 0; i < trkpts.length; i += Math.max(1, Math.floor(trkpts.length / 10))) {
                         const trkpt = trkpts[i];
                         const lat = parseFloat(trkpt.getAttribute('lat'));
@@ -481,12 +522,13 @@
                         const futureDate = new Date();
                         futureDate.setDate(futureDate.getDate() + Math.floor(i / Math.max(1, Math.floor(trkpts.length / 10))));
                         
-                        console.log(`GPX track point: Track Point ${Math.floor(i / Math.max(1, Math.floor(trkpts.length / 10))) + 1}, date:`, futureDate);
+                        const trackName = `Track Point ${Math.floor(i / Math.max(1, Math.floor(trkpts.length / 10))) + 1}`;
+                        debugLog('gpx-track-point', `Track point: ${trackName} at ${lat}, ${lon}, date: ${futureDate}`);
                         
                         waypoints.push({ 
                             lat, 
                             lon, 
-                            name: `Track Point ${Math.floor(i / Math.max(1, Math.floor(trkpts.length / 10))) + 1}`,
+                            name: trackName,
                             type: 'track',
                             dates: [futureDate]
                         });
@@ -494,7 +536,16 @@
                 }
             }
             
-            console.log('Final parsed waypoints:', waypoints);
+            debugLog('parse-complete', `Final waypoints count: ${waypoints.length}`);
+            waypoints.forEach((wp, index) => {
+                debugLog(`waypoint-${index}`, `${wp.name}: ${wp.lat}, ${wp.lon}, dates: ${wp.dates?.length || 0} items`, wp.dates?.length === 0 ? 'warn' : 'info');
+                if (wp.dates && wp.dates.length > 0) {
+                    wp.dates.forEach((date, dateIndex) => {
+                        debugLog(`waypoint-${index}-date-${dateIndex}`, `Date ${dateIndex}: ${date} (type: ${typeof date}, isDate: ${date instanceof Date}, valid: ${!isNaN(date?.getTime())})`, !date || isNaN(date?.getTime()) ? 'error' : 'info');
+                    });
+                }
+            });
+            
             return waypoints;
         }
 
