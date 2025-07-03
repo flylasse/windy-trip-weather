@@ -55,12 +55,13 @@
         }
 
         .upload-section {
-            border: 3px dashed #ddd;
-            border-radius: 15px;
-            padding: 40px;
+            border: 2px dashed #ddd;
+            border-radius: 10px;
+            padding: 20px;
             text-align: center;
             transition: all 0.3s ease;
             cursor: pointer;
+            background: #f8f9fa;
         }
 
         .upload-section:hover {
@@ -248,7 +249,7 @@
             <h1>🌤️ Trip Weather</h1>
             <p>Upload your GPX route and get detailed weather forecasts for each waypoint</p>
             <div style="font-size: 0.8rem; color: rgba(255,255,255,0.7); margin-top: 10px;">
-                Version 1.2.02 | Better Loading States & User Feedback
+                Version 1.2.04 | Clearer API Test Instructions
             </div>
         </div>
 
@@ -257,16 +258,21 @@
                 <h3>🔑 Windy API Setup</h3>
                 <p>Get your free API key from <a href="https://api.windy.com" target="_blank">api.windy.com</a></p>
                 <input type="password" id="apiKey" class="api-input" placeholder="Enter your Windy API key..." />
-                <button class="btn" onclick="saveApiKey()" style="margin-top: 10px;">Save API Key</button>
-                <button class="btn" onclick="testApiKey()" style="margin-top: 10px; margin-left: 10px; background: linear-gradient(45deg, #059669, #10b981);">Test API</button>
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <button class="btn" onclick="saveApiKey()">Save API Key</button>
+                    <button class="btn" onclick="testApiKey()" style="background: linear-gradient(45deg, #059669, #10b981);">🧪 Verify Key Works</button>
+                </div>
+                <div style="font-size: 0.8rem; color: #6b7280; margin-top: 8px;">
+                    💡 The verify button tests your API key with a sample forecast for San Francisco
+                </div>
             </div>
 
             <div class="upload-section" onclick="document.getElementById('fileInput').click()">
-                <div class="upload-icon">📁</div>
-                <h3>Upload GPX/GPXD File</h3>
-                <p>Drag and drop your GPX route file or GPXD trip file here, or click to select</p>
+                <div style="font-size: 1.5rem; margin-bottom: 10px; color: #666;">📁</div>
+                <div style="font-size: 1rem; font-weight: 600; margin-bottom: 5px;">Upload Different Route</div>
+                <div style="font-size: 0.8rem; color: #666;">Optional: Use your own GPX/GPXD file</div>
                 <input type="file" id="fileInput" accept=".gpx,.gpxd,.xml" />
-                <button class="btn" style="margin-top: 15px;">Choose File</button>
+                <button class="btn" style="margin-top: 10px; font-size: 0.9rem; padding: 8px 16px;">Choose File</button>
             </div>
 
             <div class="loading">
@@ -339,12 +345,61 @@
             debugLog('init', `API key loaded from storage: ${apiKey.substring(0, 8)}...`);
         }
 
+        // Load default route on startup
+        async function loadDefaultRoute() {
+            if (!apiKey) {
+                debugLog('default-route', 'No API key available, skipping default route load');
+                return;
+            }
+
+            try {
+                debugLog('default-route', 'Loading default route...');
+                showLoading('🗺️ Loading default route...', 'Western US Road Trip');
+                
+                const response = await fetch('default.gpx');
+                if (!response.ok) {
+                    debugLog('default-route', 'Default GPX file not found, user will need to upload', 'warn');
+                    hideLoading();
+                    return;
+                }
+                
+                const gpxText = await response.text();
+                debugLog('default-route', `Default GPX loaded: ${gpxText.length} characters`);
+                
+                updateProgress('🗺️ Processing default route...', 'Analyzing waypoints...');
+                const waypoints = parseGPX(gpxText);
+                
+                if (waypoints.length > 0) {
+                    debugLog('default-route', `Default route parsed: ${waypoints.length} waypoints`);
+                    await fetchWeatherForWaypoints(waypoints);
+                } else {
+                    debugLog('default-route', 'No waypoints found in default route', 'warn');
+                    hideLoading();
+                }
+                
+            } catch (error) {
+                debugLog('default-route', `Error loading default route: ${error.message}`, 'error');
+                hideLoading();
+                // Don't show error message - just silently fail and let user upload
+            }
+        }
+
+        // Auto-load default route if API key is available
+        if (apiKey) {
+            setTimeout(loadDefaultRoute, 1000); // Small delay to let UI settle
+        }
+
         function saveApiKey() {
             const key = document.getElementById('apiKey').value.trim();
             if (key) {
                 localStorage.setItem('windyApiKey', key);
                 apiKey = key;
                 showMessage('API key saved successfully!', 'success');
+                
+                // Auto-load default route if no weather data is currently displayed
+                if (!currentWeatherData || currentWeatherData.length === 0) {
+                    setTimeout(loadDefaultRoute, 1000);
+                }
             } else {
                 showMessage('Please enter a valid API key', 'error');
             }
@@ -390,18 +445,21 @@
         uploadSection.addEventListener('dragover', (e) => {
             e.preventDefault();
             uploadSection.classList.add('dragover');
-            uploadSection.querySelector('h3').textContent = 'Drop your file here!';
+            const titleDiv = uploadSection.querySelector('div[style*="font-weight: 600"]');
+            if (titleDiv) titleDiv.textContent = 'Drop your file here!';
         });
 
         uploadSection.addEventListener('dragleave', () => {
             uploadSection.classList.remove('dragover');
-            uploadSection.querySelector('h3').textContent = 'Upload GPX/GPXD File';
+            const titleDiv = uploadSection.querySelector('div[style*="font-weight: 600"]');
+            if (titleDiv) titleDiv.textContent = 'Upload Different Route';
         });
 
         uploadSection.addEventListener('drop', (e) => {
             e.preventDefault();
             uploadSection.classList.remove('dragover');
-            uploadSection.querySelector('h3').textContent = 'Upload GPX/GPXD File';
+            const titleDiv = uploadSection.querySelector('div[style*="font-weight: 600"]');
+            if (titleDiv) titleDiv.textContent = 'Upload Different Route';
             const files = e.dataTransfer.files;
             if (files.length > 0) {
                 debugLog('file-drop', `File dropped: ${files[0].name}`);
