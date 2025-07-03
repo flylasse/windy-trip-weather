@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trip Weather Forecast</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <h1>🌤️ Trip Weather Forecast</h1>
+    
+    <div>
+        <label for="apiKey">Windy API Key:</label>
+        <input type="password" id="apiKey" placeholder="Enter your Windy API Key">
+        <button onclick="saveApiKey()">Save API Key</button>
+        <button onclick="testApiKey()">🧪 Test API</button>
+    </div>
+
+    <div style="margin-top: 1em;">
+        <input type="file" id="fileInput" accept=".gpx,.gpxd,.xml">
+        <button onclick="loadSampleRoute()">🗺️ Sample Route</button>
+    </div>
+
+    <div id="messages"></div>
+    <div id="loading"></div>
+
+    <script src="/app.js"></script>
+    <script>
+        window.addEventListener('offline', () => {
+            showMessage('⚠️ You are offline. Weather updates will not work.', 'error');
+        });
+
+        window.addEventListener('online', () => {
+            showMessage('✅ Back online!', 'success');
+        });
+    </script>
+</body>
+</html>
