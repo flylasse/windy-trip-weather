@@ -193,7 +193,7 @@ function processWeatherData(data, targetDate) {
     const diff = Math.abs(forecastDate - targetDate);
     if (diff < minDiff) {
       minDiff = diff;
-      closestIndex = i;
+    closestIndex = i;
     }
   }
 
